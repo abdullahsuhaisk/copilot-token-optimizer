@@ -3,8 +3,16 @@
   "displayName": "Enterprise AI Token Optimizer",
   "description": "MCP-based context manager that prunes and compresses payloads before they reach the LLM, with real-time token-savings telemetry.",
   "version": "0.0.1",
-  "publisher": "sisal-hybrid-mobile",
+  "publisher": "abdullahsuhaisik",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/abdullahsuhaisk/copilot-token-optimizer.git"
+  },
+  "bugs": {
+    "url": "https://github.com/abdullahsuhaisk/copilot-token-optimizer/issues"
+  },
+  "homepage": "https://github.com/abdullahsuhaisk/copilot-token-optimizer#readme",
   "private": true,
   "engines": {
     "vscode": "^1.99.0",
