@@ -1,0 +1,59 @@
+{
+  "name": "ai-token-optimizer",
+  "displayName": "Enterprise AI Token Optimizer",
+  "description": "MCP-based context manager that prunes and compresses payloads before they reach the LLM, with real-time token-savings telemetry.",
+  "version": "0.0.1",
+  "publisher": "sisal-hybrid-mobile",
+  "license": "MIT",
+  "private": true,
+  "engines": {
+    "vscode": "^1.99.0",
+    "node": ">=20"
+  },
+  "categories": [
+    "AI",
+    "Other"
+  ],
+  "main": "./out/extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "aiTokenOptimizer.showStats",
+        "title": "AI Token Optimizer: Show Token Savings"
+      }
+    ],
+    "mcpServerDefinitionProviders": [
+      {
+        "id": "aiTokenOptimizer.provider",
+        "label": "AI Token Optimizer"
+      }
+    ]
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src",
+    "pretest": "npm run compile && npm run lint",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "vscode:prepublish": "npm run compile"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "tiktoken": "^1.0.20",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.43",
+    "@types/vscode": "^1.99.0",
+    "@typescript-eslint/eslint-plugin": "^8.18.0",
+    "@typescript-eslint/parser": "^8.18.0",
+    "eslint": "^9.16.0",
+    "typescript": "^5.5.0",
+    "typescript-eslint": "^8.18.0",
+    "vitest": "^4.1.9"
+  }
+}
