@@ -9,6 +9,7 @@ A VS Code extension + MCP (Model Context Protocol) server that prunes and compre
 - **Detailed savings report command** — `AI Token Optimizer: Show Token Savings` lists raw/optimized token counts and the saved percentage in an output panel.
 - **Safe file reads** — `read_file_optimized` rejects requests that escape the workspace root (path traversal).
 - **Two optimization levels** — `conservative` (strips comments/whitespace without changing meaning) and `aggressive`.
+- **Sensitive data redaction** — secrets/API keys, passwords, private keys, IPv4/IPv6 and MAC addresses and e-mails are masked (`[REDACTED_SECRET]`, `[REDACTED_IPV4]`, …) before reaching the LLM; counts are shown in tool output, the status bar and the savings report.
 
 ## Architecture
 
@@ -17,6 +18,7 @@ src/
   extension.ts    -> VS Code extension entry point (status bar, command, MCP definition)
   mcp-server.ts   -> Standalone Node process running the MCP server (stdio transport)
   optimizer.ts    -> Pure, vscode-independent text/code pruning engine
+  redactor.ts     -> Masks secrets, IP/MAC addresses and e-mails
   telemetry.ts    -> Helpers for reading/writing the shared stats file
 ```
 
@@ -119,6 +121,7 @@ VS Code eklentisi + MCP (Model Context Protocol) sunucusu olarak çalışan, Cop
 - **Detaylı rapor komutu** — `AI Token Optimizer: Show Token Savings` komutu, ham/optimize edilmiş token sayıları ve kazanım yüzdesini bir çıktı panelinde listeler.
 - **Güvenli dosya okuma** — `read_file_optimized` aracı, çalışma alanı kökü dışına çıkan (path traversal) istekleri reddeder.
 - **İki seviyeli optimizasyon** — `conservative` (anlamı değiştirmeden yorum/boşluk temizliği) ve `aggressive` seviyeleri desteklenir.
+- **Hassas veri maskeleme** — secret/API anahtarları, şifreler, private key'ler, IPv4/IPv6 ve MAC adresleri ile e-postalar LLM'e ulaşmadan maskelenir (`[REDACTED_SECRET]`, `[REDACTED_IPV4]`, …); sayılar araç çıktısında, durum çubuğunda ve tasarruf raporunda gösterilir.
 
 ## Mimari
 
@@ -127,6 +130,7 @@ src/
   extension.ts    -> VS Code eklenti giriş noktası (status bar, komut, MCP tanımı)
   mcp-server.ts   -> Bağımsız Node süreci olarak çalışan MCP sunucusu (stdio transport)
   optimizer.ts    -> Saf, vscode bağımsız metin/kod budama motoru
+  redactor.ts     -> Secret, IP/MAC adresi ve e-postaları maskeler
   telemetry.ts    -> Paylaşılan istatistik dosyasını okuma/yazma yardımcıları
 ```
 

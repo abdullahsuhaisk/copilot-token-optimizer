@@ -1,9 +1,10 @@
 {
-  "name": "ai-token-optimizer",
+  "name": "token-saver-mcp",
   "displayName": "Enterprise AI Token Optimizer",
   "description": "MCP-based context manager that prunes and compresses payloads before they reach the LLM, with real-time token-savings telemetry.",
-  "version": "0.0.1",
+  "version": "0.0.3",
   "publisher": "abdullahsuhaisik",
+  "icon": "images/icon.png",
   "license": "MIT",
   "repository": {
     "type": "git",

@@ -13,7 +13,12 @@
  * meaning of code. It only removes comments, collapses whitespace and folds
  * exactly-repeated consecutive lines. Anything that could alter program
  * behaviour belongs to a higher (opt-in) level.
+ *
+ * Sensitive values (secrets, IP/MAC addresses, e-mails) are masked on every
+ * level unless `redact: false` is passed.
  */
+
+import { redactSensitive, emptyRedactionCounts, type RedactionCounts } from './redactor.js';
 
 /** How aggressively the optimizer prunes the payload. */
 export type OptimizationLevel = 'conservative' | 'aggressive';
@@ -28,6 +33,8 @@ export interface OptimizeOptions {
    * comment styles is stripped.
    */
   readonly languageId?: string;
+  /** Mask secrets, IP/MAC addresses and e-mails. Defaults to `true`. */
+  readonly redact?: boolean;
 }
 
 /** Result of optimizing a payload, including raw vs optimized character counts. */
@@ -38,6 +45,8 @@ export interface OptimizeResult {
   readonly rawChars: number;
   /** Character length of the optimized output. */
   readonly optimizedChars: number;
+  /** Number of sensitive values masked, per category. */
+  readonly redactions: RedactionCounts;
 }
 
 /** Comment delimiters for a family of languages. */
@@ -223,11 +232,20 @@ export function optimize(text: string, options: OptimizeOptions = {}): OptimizeR
     processed.pop();
   }
 
-  const optimized = processed.join('\n');
+  let optimized = processed.join('\n');
+
+  // Redact last so counts reflect only what would actually reach the model.
+  let redactions = emptyRedactionCounts();
+  if (options.redact ?? true) {
+    const redacted = redactSensitive(optimized);
+    optimized = redacted.text;
+    redactions = redacted.counts;
+  }
 
   return {
     optimized,
     rawChars,
-    optimizedChars: optimized.length
+    optimizedChars: optimized.length,
+    redactions
   };
 }

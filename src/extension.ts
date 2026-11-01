@@ -13,6 +13,7 @@
 import * as vscode from 'vscode';
 import { join } from 'node:path';
 import { readStats, type SessionStats } from './telemetry';
+import { totalRedactions } from './redactor';
 
 const PROVIDER_ID = 'aiTokenOptimizer.provider';
 const SHOW_STATS_COMMAND = 'aiTokenOptimizer.showStats';
@@ -85,7 +86,9 @@ function createServerDefinition(
 /** Reads current stats and updates the status bar label. */
 async function refreshStatusBar(): Promise<void> {
   const stats = await readStats(statsFilePath);
-  statusBarItem.text = `$(zap) Saved ${formatTokens(stats.totalSavedTokens)} tokens`;
+  statusBarItem.text =
+    `$(zap) Saved ${formatTokens(stats.totalSavedTokens)} tokens · ` +
+    `$(shield) ${totalRedactions(stats.redactions)} redacted`;
 }
 
 /** Opens the output channel with a detailed savings breakdown. */
@@ -101,6 +104,13 @@ async function showStats(): Promise<void> {
   outputChannel.appendLine(
     `Tokens saved       : ${stats.totalSavedTokens} (${pct.toFixed(1)}%)`
   );
+  const r = stats.redactions;
+  outputChannel.appendLine(`Redacted (total)   : ${totalRedactions(r)}`);
+  outputChannel.appendLine(`  Secrets / keys   : ${r.secrets}`);
+  outputChannel.appendLine(`  IPv4 addresses   : ${r.ipv4}`);
+  outputChannel.appendLine(`  IPv6 addresses   : ${r.ipv6}`);
+  outputChannel.appendLine(`  MAC addresses    : ${r.mac}`);
+  outputChannel.appendLine(`  E-mail addresses : ${r.email}`);
   outputChannel.show(true);
 }
 

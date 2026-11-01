@@ -10,6 +10,7 @@
 
 import { promises as fs } from 'node:fs';
 import { get_encoding, type Tiktoken } from 'tiktoken';
+import { emptyRedactionCounts, type RedactionCounts } from './redactor.js';
 
 /** Encoding used for token estimation (GPT-4o / o-series family). */
 const ENCODING = 'o200k_base';
@@ -74,6 +75,8 @@ export interface SessionStats {
   totalOptimizedTokens: number;
   /** Sum of saved tokens across all calls. */
   totalSavedTokens: number;
+  /** Sensitive values masked across all calls, per category. */
+  redactions: RedactionCounts;
 }
 
 /** Returns an empty {@link SessionStats} accumulator. */
@@ -82,7 +85,8 @@ export function emptyStats(): SessionStats {
     calls: 0,
     totalRawTokens: 0,
     totalOptimizedTokens: 0,
-    totalSavedTokens: 0
+    totalSavedTokens: 0,
+    redactions: emptyRedactionCounts()
   };
 }
 
@@ -100,7 +104,8 @@ export async function readStats(filePath: string): Promise<SessionStats> {
       calls: parsed.calls ?? 0,
       totalRawTokens: parsed.totalRawTokens ?? 0,
       totalOptimizedTokens: parsed.totalOptimizedTokens ?? 0,
-      totalSavedTokens: parsed.totalSavedTokens ?? 0
+      totalSavedTokens: parsed.totalSavedTokens ?? 0,
+      redactions: { ...emptyRedactionCounts(), ...parsed.redactions }
     };
   } catch {
     return emptyStats();
@@ -114,18 +119,28 @@ export async function readStats(filePath: string): Promise<SessionStats> {
  *
  * @param filePath Absolute path to the stats JSON file.
  * @param record   The savings to add.
+ * @param redactions Sensitive values masked in this call.
  * @returns The updated cumulative stats.
  */
 export async function recordSavings(
   filePath: string,
-  record: SavingsRecord
+  record: SavingsRecord,
+  redactions: RedactionCounts = emptyRedactionCounts()
 ): Promise<SessionStats> {
   const current = await readStats(filePath);
+  const r = current.redactions;
   const updated: SessionStats = {
     calls: current.calls + 1,
     totalRawTokens: current.totalRawTokens + record.rawTokens,
     totalOptimizedTokens: current.totalOptimizedTokens + record.optimizedTokens,
-    totalSavedTokens: current.totalSavedTokens + record.savedTokens
+    totalSavedTokens: current.totalSavedTokens + record.savedTokens,
+    redactions: {
+      secrets: r.secrets + redactions.secrets,
+      ipv4: r.ipv4 + redactions.ipv4,
+      ipv6: r.ipv6 + redactions.ipv6,
+      mac: r.mac + redactions.mac,
+      email: r.email + redactions.email
+    }
   };
 
   const tempPath = `${filePath}.tmp`;

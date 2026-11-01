@@ -18,8 +18,9 @@ import { promises as fs } from 'node:fs';
 import { z } from 'zod';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { optimize } from './optimizer.js';
+import { optimize, type OptimizeResult } from './optimizer.js';
 import { measureSavings, recordSavings, readStats } from './telemetry.js';
+import { totalRedactions, type RedactionCounts } from './redactor.js';
 
 /** Absolute path to the shared stats JSON file, supplied by the extension. */
 const STATS_FILE = process.env.STATS_FILE;
@@ -39,16 +40,15 @@ const levelSchema = z
  * Persists a savings measurement when a stats file is configured. Failures are
  * swallowed so telemetry never breaks a tool call.
  */
-async function persist(rawText: string, optimizedText: string): Promise<void> {
-    process.stderr.write(
-    `[ai-token-optimizer] RAW:\n${rawText}\n---\nOPTIMIZED:\n${optimizedText}\n===\n`
-  );
+async function persist(rawText: string, result: OptimizeResult): Promise<void> {
+  // Never log the raw payload: it may contain the secrets we just masked.
+  process.stderr.write(`[ai-token-optimizer] OPTIMIZED:\n${result.optimized}\n===\n`);
 
   if (!STATS_FILE) {
     return;
   }
   try {
-    await recordSavings(STATS_FILE, measureSavings(rawText, optimizedText));
+    await recordSavings(STATS_FILE, measureSavings(rawText, result.optimized), result.redactions);
   } catch {
     // Telemetry is best-effort; ignore write errors.
   }
@@ -77,26 +77,38 @@ function resolveWithinWorkspace(inputPath: string): string {
 }
 
 /** Builds a one-line, human-readable savings summary for tool output. */
-function savingsLine(rawText: string, optimizedText: string): string {
-  const s = measureSavings(rawText, optimizedText);
-  return `Tokens: ${s.rawTokens} -> ${s.optimizedTokens} (saved ${s.savedTokens}, ${s.savedPct.toFixed(1)}%)`;
+function savingsLine(rawText: string, result: OptimizeResult): string {
+  const s = measureSavings(rawText, result.optimized);
+  return (
+    `Tokens: ${s.rawTokens} -> ${s.optimizedTokens} (saved ${s.savedTokens}, ${s.savedPct.toFixed(1)}%)` +
+    ` | ${redactionLine(result.redactions)}`
+  );
+}
+
+/** Formats redaction counts, e.g. "Redacted: 3 (secrets 1, IPv4 2, IPv6 0, MAC 0, e-mail 0)". */
+function redactionLine(r: RedactionCounts): string {
+  return (
+    `Redacted: ${totalRedactions(r)} (secrets ${r.secrets}, IPv4 ${r.ipv4}, ` +
+    `IPv6 ${r.ipv6}, MAC ${r.mac}, e-mail ${r.email})`
+  );
 }
 
 function createServer(): McpServer {
   const server = new McpServer({
     name: 'ai-token-optimizer',
-    version: '0.0.1'
+    version: '0.0.3'
   });
 
-  // Tool 1: optimize an arbitrary text/code payload.
+  // Tool 1: optimize an arbitrary text/code payload. // NOTE:DELETE IT IF ANOTHER LLM DON'T USE OR CHECK
   server.registerTool(
     'optimize_context',
     {
       title: 'Optimize Context',
       description:
         'Prune and compress a text or code payload (strip comments, collapse ' +
-        'whitespace, fold repeated lines) so it consumes fewer tokens. Returns ' +
-        'the optimized text plus a token-savings summary.',
+        'whitespace, fold repeated lines) so it consumes fewer tokens, and mask ' +
+        'secrets, IP/MAC addresses and e-mails. Returns the optimized text plus ' +
+        'a token-savings and redaction summary.',
       inputSchema: {
         text: z.string().describe('The raw text or code to optimize.'),
         languageId: z
@@ -109,10 +121,10 @@ function createServer(): McpServer {
     },
     async ({ text, languageId, level }) => {
       const result = optimize(text, { languageId, level });
-      await persist(text, result.optimized);
+      await persist(text, result);
       return {
         content: [
-          { type: 'text', text: savingsLine(text, result.optimized) },
+          { type: 'text', text: savingsLine(text, result) },
           { type: 'text', text: result.optimized }
         ]
       };
@@ -126,7 +138,8 @@ function createServer(): McpServer {
       title: 'Read File (Optimized)',
       description:
         'Read a file from the workspace and return a token-optimized version of ' +
-        'its contents instead of the raw file, reducing context usage.',
+        'its contents (secrets, IP/MAC addresses and e-mails masked) instead of ' +
+        'the raw file, reducing context usage.',
       inputSchema: {
         path: z
           .string()
@@ -149,10 +162,10 @@ function createServer(): McpServer {
       const raw = await fs.readFile(absolute, 'utf8');
       const languageId = inferLanguageId(absolute);
       const result = optimize(raw, { languageId, level });
-      await persist(raw, result.optimized);
+      await persist(raw, result);
       return {
         content: [
-          { type: 'text', text: savingsLine(raw, result.optimized) },
+          { type: 'text', text: savingsLine(raw, result) },
           { type: 'text', text: result.optimized }
         ]
       };
@@ -183,7 +196,8 @@ function createServer(): McpServer {
         `Calls: ${stats.calls}\n` +
         `Raw tokens: ${stats.totalRawTokens}\n` +
         `Optimized tokens: ${stats.totalOptimizedTokens}\n` +
-        `Saved tokens: ${stats.totalSavedTokens} (${pct.toFixed(1)}%)`;
+        `Saved tokens: ${stats.totalSavedTokens} (${pct.toFixed(1)}%)\n` +
+        redactionLine(stats.redactions);
       return { content: [{ type: 'text', text: summary }] };
     }
   );
