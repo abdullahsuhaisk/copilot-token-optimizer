@@ -66,7 +66,7 @@ export function deactivate(): void {
 }
 
 /** Builds the stdio MCP server definition, wiring env vars for the server. */
-function createServerDefinition(
+export function createServerDefinition(
   context: vscode.ExtensionContext
 ): vscode.McpStdioServerDefinition {
   const serverScript = vscode.Uri.joinPath(context.extensionUri, 'out', 'mcp-server.js').fsPath;
@@ -74,9 +74,11 @@ function createServerDefinition(
 
   return new vscode.McpStdioServerDefinition(
     'AI Token Optimizer',
-    'node',
+    // VS Code'un gömülü Node'u; kullanıcının PATH'ine bağımlı değil.
+    process.execPath,
     [serverScript],
     {
+      ELECTRON_RUN_AS_NODE: '1',
       STATS_FILE: statsFilePath,
       WORKSPACE_ROOT: workspaceRoot
     }

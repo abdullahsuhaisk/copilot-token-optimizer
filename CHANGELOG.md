@@ -4,6 +4,10 @@ All notable changes to the "ai-token-optimizer" extension will be documented in 
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.0.4] - 2026-11-02
+
+- Fix: MCP server no longer requires `node` on PATH; uses VS Code's bundled runtime.
+
 ## [0.0.3] - 2026-11-02
 
 ### Added

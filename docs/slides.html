@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Enterprise AI Token Optimizer</title>
+<style>
+  :root { --bg:#0f172a; --card:#1e293b; --fg:#e2e8f0; --muted:#94a3b8; --accent:#fbbf24; --accent2:#38bdf8; }
+  * { box-sizing:border-box; }
+  html, body { margin:0; height:100%; background:var(--bg); color:var(--fg);
+    font-family:-apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; overflow:hidden; }
+  .slide { position:absolute; inset:0; padding:6vh 8vw; display:none; flex-direction:column; justify-content:center; }
+  .slide.active { display:flex; }
+  h1 { font-size:5.2vw; margin:0 0 2vh; line-height:1.1; }
+  h2 { font-size:3.4vw; margin:0 0 4vh; color:var(--accent); }
+  p, li { font-size:1.9vw; line-height:1.5; }
+  ul { padding-left:2vw; margin:0; }
+  li { margin-bottom:1.4vh; }
+  .sub { color:var(--muted); font-size:2.2vw; }
+  .accent { color:var(--accent); }
+  .accent2 { color:var(--accent2); }
+  code { background:var(--card); color:var(--accent2); padding:.1em .4em; border-radius:6px; font-size:.92em; }
+  pre { background:var(--card); padding:2vh 2vw; border-radius:12px; font-size:1.5vw; line-height:1.5; overflow:auto; margin:0; }
+  .grid { display:grid; gap:2vw; grid-template-columns:repeat(3, 1fr); }
+  .card { background:var(--card); border-radius:14px; padding:2.5vh 1.8vw; }
+  .card h3 { margin:0 0 1.2vh; font-size:2vw; color:var(--accent2); }
+  .card p { margin:0; font-size:1.5vw; color:var(--muted); }
+  .flow { display:flex; align-items:center; gap:1.2vw; flex-wrap:wrap; }
+  .box { background:var(--card); border:2px solid var(--accent2); border-radius:12px; padding:1.6vh 1.4vw; font-size:1.6vw; text-align:center; }
+  .arrow { color:var(--accent); font-size:2.4vw; }
+  table { border-collapse:collapse; width:100%; font-size:1.6vw; }
+  td, th { padding:1.2vh 1vw; border-bottom:1px solid #334155; text-align:left; }
+  th { color:var(--accent); }
+  .num { position:fixed; right:2vw; bottom:2vh; color:var(--muted); font-size:1.2vw; }
+  .hint { position:fixed; left:2vw; bottom:2vh; color:var(--muted); font-size:1.2vw; }
+  .big { font-size:7vw; color:var(--accent); font-weight:700; margin:0; }
+</style>
+</head>
+<body>
+
+<section class="slide">
+  <h1>Enterprise <span class="accent">AI Token Optimizer</span></h1>
+  <p class="sub">LLM'e ulaşmadan önce bağlamı budayan MCP tabanlı VS Code eklentisi</p>
+  <p class="sub" style="font-size:1.6vw">v0.0.2 · MIT · TypeScript · Model Context Protocol</p>
+</section>
+
+<section class="slide">
+  <h2>Problem</h2>
+  <ul>
+    <li>Copilot/agent araçları dosya ve metin içeriklerini olduğu gibi modele gönderir.</li>
+    <li>Yorumlar, fazla boşluklar ve tekrar eden satırlar gereksiz token tüketir.</li>
+    <li>Daha fazla token: daha yüksek maliyet, daha yavaş yanıt, dolan context penceresi.</li>
+    <li>Kazanılan tasarrufu ölçecek şeffaf bir yöntem yok.</li>
+  </ul>
+</section>
+
+<section class="slide">
+  <h2>Çözüm</h2>
+  <ul>
+    <li>Eklenti, bir <b>MCP sunucusu</b> kaydeder; agent bu araçları ek yapılandırma olmadan kullanır.</li>
+    <li>İçerik, modele gitmeden önce <code>optimize()</code> motorundan geçer.</li>
+    <li>Kazanım <code>tiktoken</code> (<code>o200k_base</code>) ile gerçek token sayısı üzerinden ölçülür.</li>
+    <li>Sonuç durum çubuğunda canlı gösterilir: <code>$(zap) Saved N tokens</code></li>
+  </ul>
+</section>
+
+<section class="slide">
+  <h2>Mimari</h2>
+  <div class="flow">
+    <div class="box">Copilot / Agent</div><span class="arrow">→</span>
+    <div class="box">MCP Sunucusu<br><small>mcp-server.ts (stdio)</small></div><span class="arrow">→</span>
+    <div class="box">optimize()<br><small>optimizer.ts</small></div><span class="arrow">→</span>
+    <div class="box">Telemetri<br><small>telemetry.ts → stats.json</small></div>
+  </div>
+  <p style="margin-top:5vh"><span class="accent2">extension.ts</span> sunucuyu ayrı bir <code>node</code> süreci olarak başlatır
+  (<code>STATS_FILE</code>, <code>WORKSPACE_ROOT</code>), <code>stats.json</code> dosyasını izler ve durum çubuğunu günceller.</p>
+</section>
+
+<section class="slide">
+  <h2>Proje Yapısı</h2>
+<pre>src/
+  extension.ts    VS Code giriş noktası (status bar, komut, MCP tanımı)
+  mcp-server.ts   Bağımsız MCP sunucusu (stdio transport)
+  optimizer.ts    Saf, vscode'dan bağımsız budama motoru
+  telemetry.ts    Token sayımı ve paylaşılan istatistik dosyası
+  optimizer.test.ts  Vitest birim testleri</pre>
+</section>
+
+<section class="slide">
+  <h2>MCP Araçları</h2>
+  <div class="grid">
+    <div class="card"><h3>optimize_context</h3><p>Verilen metin veya kodu budar; sonuç ve token tasarruf özetini döndürür.</p></div>
+    <div class="card"><h3>read_file_optimized</h3><p>Çalışma alanındaki dosyayı okur ve optimize edilmiş içeriği döndürür.</p></div>
+    <div class="card"><h3>get_token_stats</h3><p>Oturum boyunca toplam çağrı sayısı ve tasarruf edilen token bilgisini verir.</p></div>
+  </div>
+</section>
+
+<section class="slide">
+  <h2>Optimizasyon Motoru</h2>
+  <ul>
+    <li>Blok ve satır yorumlarını temizler (dile göre: C-benzeri, <code>#</code> tabanlı).</li>
+    <li>Satır sonu boşluklarını siler, ardışık boş satırları teke indirir.</li>
+    <li>Tekrar eden ardışık satırları katlar: <code>satır  (x3)</code></li>
+    <li><b>conservative</b>: anlamı değiştirmez. <b>aggressive</b>: ek olarak çoklu boşlukları tek boşluğa indirir.</li>
+  </ul>
+</section>
+
+<section class="slide">
+  <h2>Telemetri ve Kullanıcı Deneyimi</h2>
+  <ul>
+    <li>Her çağrıda ham ve optimize token sayıları ölçülür, <code>stats.json</code> dosyasına atomik yazılır (tmp + rename).</li>
+    <li>Eklenti dosyayı izler; durum çubuğu anında güncellenir.</li>
+    <li><code>AI Token Optimizer: Show Token Savings</code> komutu çağrı sayısı, ham/optimize token ve yüzde kazancı gösterir.</li>
+  </ul>
+</section>
+
+<section class="slide">
+  <h2>Güvenlik</h2>
+  <ul>
+    <li><code>read_file_optimized</code> yalnızca çalışma alanı kökü içindeki dosyaları okur.</li>
+    <li>Kök dışına çıkan yollar (path traversal, <code>..</code>) reddedilir.</li>
+    <li>Çalışma alanı yapılandırılmamışsa dosya okuma tamamen kapalıdır.</li>
+    <li>Araçlar <code>readOnlyHint</code> ile salt-okunur olarak işaretlidir.</li>
+  </ul>
+</section>
+
+<section class="slide">
+  <h2>Örnek Çıktı</h2>
+  <pre>Tokens: 1741 -> 907 (saved 834, 47.9%)    optimizer.ts
+Tokens: 1044 -> 586 (saved 458, 43.9%)    telemetry.ts
+Tokens:  984 -> 715 (saved 269, 27.3%)    extension.ts</pre>
+  <p class="sub" style="margin-top:3vh">Bu projenin kendi kaynak dosyaları üzerinde ölçülen tasarruf.</p>
+</section>
+
+<section class="slide">
+  <h2>Geliştirme</h2>
+  <table>
+    <tr><th>Komut</th><th>Açıklama</th></tr>
+    <tr><td><code>npm run compile</code></td><td>TypeScript'i <code>out/</code> dizinine derler</td></tr>
+    <tr><td><code>npm run watch</code></td><td>Değişikliklerde otomatik derler</td></tr>
+    <tr><td><code>npm run lint</code></td><td>ESLint kontrolü</td></tr>
+    <tr><td><code>npm test</code></td><td>Vitest birim testleri</td></tr>
+    <tr><td><code>F5</code></td><td>Extension Development Host'ta çalıştırır</td></tr>
+  </table>
+</section>
+
+<section class="slide">
+  <h2>Sınırlar ve Yol Haritası</h2>
+  <ul>
+    <li>Optimizasyon yalnızca MCP araç çıktısı seviyesinde çalışır; VS Code, Copilot'un kendi prompt'unu yeniden yazmaya izin vermez.</li>
+    <li>İstatistikler oturuma özeldir ve global storage altında tutulur.</li>
+    <li>Olası geliştirmeler: daha fazla dil desteği, minify/özetleme stratejileri, oturum geçmişi grafikleri.</li>
+  </ul>
+</section>
+
+<section class="slide" style="align-items:center; text-align:center">
+  <p class="big">Teşekkürler</p>
+  <p class="sub">Sorular?</p>
+  <p class="sub" style="font-size:1.6vw">github.com/abdullahsuhaisk/copilot-token-optimizer</p>
+</section>
+
+<div class="hint">← → / Boşluk: gezin · F: tam ekran</div>
+<div class="num" id="num"></div>
+
+<script>
+  const slides = [...document.querySelectorAll('.slide')];
+  const num = document.getElementById('num');
+  let i = Math.max(0, Math.min(slides.length - 1, (parseInt(location.hash.slice(1), 10) || 1) - 1));
+
+  function show(n) {
+    i = Math.max(0, Math.min(slides.length - 1, n));
+    slides.forEach((s, k) => s.classList.toggle('active', k === i));
+    num.textContent = `${i + 1} / ${slides.length}`;
+    history.replaceState(null, '', `#${i + 1}`);
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (['ArrowRight', 'ArrowDown', 'PageDown', ' '].includes(e.key)) show(i + 1);
+    else if (['ArrowLeft', 'ArrowUp', 'PageUp'].includes(e.key)) show(i - 1);
+    else if (e.key === 'Home') show(0);
+    else if (e.key === 'End') show(slides.length - 1);
+    else if (e.key.toLowerCase() === 'f') document.documentElement.requestFullscreen?.();
+  });
+  document.addEventListener('click', (e) => show(e.clientX < innerWidth / 3 ? i - 1 : i + 1));
+
+  show(i);
+</script>
+</body>
+</html>
