@@ -100,11 +100,33 @@ npm install
 
 - `AI Token Optimizer: Show Token Savings` — shows raw/optimized token counts and the saved percentage for the current session in an output panel.
 
+## Making Copilot Use the Tools
+
+The model decides which tool to call, so an extension cannot force it. To maximize usage:
+
+1. **Disable the built-in file-read tool** in Agent mode via the **Tools** picker in the chat input; Copilot then has to use `read_file_optimized`.
+2. **Add project instructions for extra savings:** create `.github/copilot-instructions.md` in the root of your project with the content below. Copilot reads it automatically on every request in that workspace:
+
+```markdown
+# Copilot Instructions — AI Token Optimizer
+
+- ALWAYS read workspace files with the `read_file_optimized` MCP tool (from the
+  "AI Token Optimizer" server). Do NOT use the built-in file-read tool unless
+  `read_file_optimized` returns an error, or you need the exact original text
+  and line numbers to make an edit.
+- Before reasoning over any large text that is not a file (terminal output,
+  logs, pasted code, API responses), pass it through the `optimize_context`
+  MCP tool first.
+- When the user asks about savings, call `get_token_stats`.
+```
+
+3. **Reference the tool explicitly** in a prompt, e.g. `#read_file_optimized`.
+
 ## Known Limitations
 
 - Optimization only happens at the MCP tool-output boundary; VS Code currently has no API to transparently rewrite Copilot's own prompt, so the model's direct input cannot be altered.
 - AI Credits are an estimate based on uncached input-token price, not Copilot billing data. Set `aiTokenOptimizer.aiCreditInputPricePerMillionUsd` to the input price for your model; actual usage can differ due to model choice and cached tokens.
-- Stats are stored in `stats.json` inside the extension's global storage directory and are scoped to the session.
+- Stats are stored in `stats.json` inside the extension's global storage directory, shared by all VS Code windows, and show the cumulative total across projects.
 
 ## License
 
@@ -214,11 +236,33 @@ npm install
 
 - `AI Token Optimizer: Show Token Savings` — Mevcut oturumun ham/optimize token sayılarını ve kazanım yüzdesini çıktı panelinde gösterir.
 
+## Copilot'un Araçları Kullanmasını Sağlama
+
+Hangi aracın çağrılacağına model karar verir; eklenti bunu zorlayamaz. Kullanımı artırmak için:
+
+1. **Yerleşik dosya okuma aracını kapatın:** Agent modunda chat kutusundaki **Tools** seçicisinden kaldırın; Copilot `read_file_optimized` kullanmak zorunda kalır.
+2. **Daha fazla tasarruf için proje talimatı ekleyin:** Projenizin kök dizininde `.github/copilot-instructions.md` dosyasını oluşturup aşağıdaki içeriği yapıştırın. Copilot bu dosyayı o workspace'teki her istekte otomatik okur:
+
+```markdown
+# Copilot Instructions — AI Token Optimizer
+
+- ALWAYS read workspace files with the `read_file_optimized` MCP tool (from the
+  "AI Token Optimizer" server). Do NOT use the built-in file-read tool unless
+  `read_file_optimized` returns an error, or you need the exact original text
+  and line numbers to make an edit.
+- Before reasoning over any large text that is not a file (terminal output,
+  logs, pasted code, API responses), pass it through the `optimize_context`
+  MCP tool first.
+- When the user asks about savings, call `get_token_stats`.
+```
+
+3. **Aracı prompt'ta doğrudan belirtin**, örn. `#read_file_optimized`.
+
 ## Bilinen Sınırlamalar
 
 - Optimizasyon yalnızca MCP araç çıktısı seviyesinde uygulanır; VS Code şu an Copilot'un kendi prompt'unu şeffaf biçimde yeniden yazmak için bir API sunmadığından, doğrudan model girişini değiştirmek mümkün değildir.
 - AI Credits değeri, önbelleksiz giriş-token fiyatına dayalı bir tahmindir; Copilot fatura verisi değildir. `aiTokenOptimizer.aiCreditInputPricePerMillionUsd` ayarını kullandığınız modelin giriş-token fiyatına göre düzenleyin; model ve önbellek kullanımı gerçek tutarı değiştirebilir.
-- İstatistikler, eklentinin global storage dizinindeki `stats.json` dosyasında saklanır ve oturuma özeldir.
+- İstatistikler, eklentinin global storage dizinindeki `stats.json` dosyasında saklanır; tüm VS Code pencereleri bu dosyayı paylaşır ve projeler genelindeki toplamı gösterir.
 
 ## Lisans
 
@@ -328,11 +372,33 @@ npm install
 
 - `AI Token Optimizer: Show Token Savings` — mostra in un pannello di output i token grezzi/ottimizzati e la percentuale di risparmio della sessione corrente.
 
+## Far usare gli strumenti a Copilot
+
+È il modello a decidere quale strumento chiamare, quindi un'estensione non può forzarlo. Per massimizzarne l'uso:
+
+1. **Disattiva lo strumento integrato di lettura file** in modalità Agent dal selettore **Tools** nella chat; Copilot dovrà usare `read_file_optimized`.
+2. **Aggiungi istruzioni di progetto per un risparmio maggiore:** crea `.github/copilot-instructions.md` nella root del progetto con il contenuto seguente. Copilot lo legge automaticamente a ogni richiesta in quel workspace:
+
+```markdown
+# Copilot Instructions — AI Token Optimizer
+
+- ALWAYS read workspace files with the `read_file_optimized` MCP tool (from the
+  "AI Token Optimizer" server). Do NOT use the built-in file-read tool unless
+  `read_file_optimized` returns an error, or you need the exact original text
+  and line numbers to make an edit.
+- Before reasoning over any large text that is not a file (terminal output,
+  logs, pasted code, API responses), pass it through the `optimize_context`
+  MCP tool first.
+- When the user asks about savings, call `get_token_stats`.
+```
+
+3. **Cita lo strumento esplicitamente** nel prompt, ad es. `#read_file_optimized`.
+
 ## Limitazioni note
 
 - L'ottimizzazione avviene solo al confine dell'output degli strumenti MCP; VS Code al momento non offre un'API per riscrivere in modo trasparente il prompt di Copilot, quindi l'input diretto del modello non può essere modificato.
 - Gli AI Credits sono una stima basata sul prezzo dei token di input non memorizzati nella cache, non sui dati di fatturazione Copilot. Imposta `aiTokenOptimizer.aiCreditInputPricePerMillionUsd` in base al prezzo del modello; il modello e i token nella cache possono modificare il consumo effettivo.
-- Le statistiche sono salvate in `stats.json` nella directory di global storage dell'estensione e sono limitate alla sessione.
+- Le statistiche sono salvate in `stats.json` nella directory di global storage dell'estensione, sono condivise da tutte le finestre di VS Code e mostrano il totale cumulativo tra i progetti.
 
 ## Licenza
 

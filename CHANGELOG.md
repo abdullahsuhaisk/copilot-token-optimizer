@@ -4,6 +4,17 @@ All notable changes to the "ai-token-optimizer" extension will be documented in 
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.0.7] - 2026-11-17
+
+- README: "Making Copilot Use the Tools" now includes a ready-to-copy
+  `.github/copilot-instructions.md` to add to your project for extra savings.
+
+## [0.0.6] - 2026-11-17
+
+- MCP tool descriptions now steer Copilot to prefer `read_file_optimized` over
+  the built-in file reader and to run large non-file text through
+  `optimize_context`, so the tools are used more often.
+
 ## [0.0.5] - 2026-11-17
 
 - Fix: Status bar shows the cumulative total across all VS Code windows/projects.

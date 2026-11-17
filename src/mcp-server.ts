@@ -131,10 +131,12 @@ function createServer(): McpServer {
     {
       title: 'Optimize Context',
       description:
-        'Prune and compress a text or code payload (strip comments, collapse ' +
-        'whitespace, fold repeated lines) so it consumes fewer tokens, and mask ' +
-        'secrets, IP/MAC addresses and e-mails. Returns the optimized text plus ' +
-        'a token-savings and redaction summary.',
+        'Use this to shrink any large text or code payload (logs, terminal ' +
+        'output, pasted code, API responses) before reasoning over it. Prunes ' +
+        'and compresses (strips comments, collapses whitespace, folds repeated ' +
+        'lines) so it consumes fewer tokens, and masks secrets, IP/MAC ' +
+        'addresses and e-mails. Returns the optimized text plus a token-savings ' +
+        'and redaction summary.',
       inputSchema: {
         text: z.string().describe('The raw text or code to optimize.'),
         languageId: z
@@ -163,9 +165,13 @@ function createServer(): McpServer {
     {
       title: 'Read File (Optimized)',
       description:
-        'Read a file from the workspace and return a token-optimized version of ' +
-        'its contents (secrets, IP/MAC addresses and e-mails masked) instead of ' +
-        'the raw file, reducing context usage.',
+        'PREFERRED way to read workspace files: use this INSTEAD OF the built-in ' +
+        'file read tool whenever you need a file\'s contents. Returns a ' +
+        'token-optimized version of the file (comments/whitespace pruned; ' +
+        'secrets, IP/MAC addresses and e-mails masked), so it uses fewer tokens ' +
+        'and keeps sensitive data out of context. Fall back to the built-in ' +
+        'reader only if this tool returns an error or you need exact original ' +
+        'formatting/line numbers to make an edit.',
       inputSchema: {
         path: z
           .string()
