@@ -19,7 +19,12 @@ import { z } from 'zod';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { optimize, type OptimizeResult } from './optimizer.js';
-import { measureSavings, recordSavings, readStats } from './telemetry.js';
+import {
+  estimateSavedAICredits,
+  measureSavings,
+  recordSavings,
+  readStats
+} from './telemetry.js';
 import { totalRedactions, type RedactionCounts } from './redactor.js';
 
 /** Absolute path to the shared stats JSON file, supplied by the extension. */
@@ -30,6 +35,7 @@ const STATS_FILE = process.env.STATS_FILE;
  * extension. When unset, file reads are disabled for safety.
  */
 const WORKSPACE_ROOT = process.env.WORKSPACE_ROOT;
+const INPUT_PRICE_PER_MILLION_USD = readInputPricePerMillionUsd();
 
 const levelSchema = z
   .enum(['conservative', 'aggressive'])
@@ -48,7 +54,12 @@ async function persist(rawText: string, result: OptimizeResult): Promise<void> {
     return;
   }
   try {
-    await recordSavings(STATS_FILE, measureSavings(rawText, result.optimized), result.redactions);
+    await recordSavings(
+      STATS_FILE,
+      measureSavings(rawText, result.optimized),
+      result.redactions,
+      INPUT_PRICE_PER_MILLION_USD
+    );
   } catch {
     // Telemetry is best-effort; ignore write errors.
   }
@@ -81,8 +92,23 @@ function savingsLine(rawText: string, result: OptimizeResult): string {
   const s = measureSavings(rawText, result.optimized);
   return (
     `Tokens: ${s.rawTokens} -> ${s.optimizedTokens} (saved ${s.savedTokens}, ${s.savedPct.toFixed(1)}%)` +
+    ` | AI credits (est.): ~${formatAICredits(estimateSavedAICredits(s.savedTokens, INPUT_PRICE_PER_MILLION_USD))}` +
+    ` ($${INPUT_PRICE_PER_MILLION_USD}/1M input tokens)` +
     ` | ${redactionLine(result.redactions)}`
   );
+}
+
+function readInputPricePerMillionUsd(): number {
+  const raw = process.env.AI_CREDIT_INPUT_PRICE_PER_MILLION_USD;
+  const price = raw === undefined ? 1 : Number(raw);
+  if (!Number.isFinite(price) || price < 0) {
+    throw new Error('AI_CREDIT_INPUT_PRICE_PER_MILLION_USD must be a non-negative number.');
+  }
+  return price;
+}
+
+function formatAICredits(count: number): string {
+  return String(Number(count.toFixed(6)));
 }
 
 /** Formats redaction counts, e.g. "Redacted: 3 (secrets 1, IPv4 2, IPv6 0, MAC 0, e-mail 0)". */
@@ -177,7 +203,7 @@ function createServer(): McpServer {
     'get_token_stats',
     {
       title: 'Get Token Stats',
-      description: 'Return cumulative token-savings statistics for this session.',
+      description: 'Return cumulative token and estimated AI Credit savings for this session.',
       inputSchema: {},
       annotations: { readOnlyHint: true }
     },
@@ -187,7 +213,7 @@ function createServer(): McpServer {
           content: [{ type: 'text', text: 'No stats file configured.' }]
         };
       }
-      const stats = await readStats(STATS_FILE);
+      const stats = await readStats(STATS_FILE, INPUT_PRICE_PER_MILLION_USD);
       const pct =
         stats.totalRawTokens === 0
           ? 0
@@ -197,6 +223,9 @@ function createServer(): McpServer {
         `Raw tokens: ${stats.totalRawTokens}\n` +
         `Optimized tokens: ${stats.totalOptimizedTokens}\n` +
         `Saved tokens: ${stats.totalSavedTokens} (${pct.toFixed(1)}%)\n` +
+        `Estimated AI credits saved: ~${formatAICredits(stats.totalEstimatedSavedAICredits)}\n` +
+        `Current estimate rate: $${INPUT_PRICE_PER_MILLION_USD} per 1M input tokens\n` +
+        'Estimate only; actual Copilot usage depends on model pricing and cached tokens.\n' +
         redactionLine(stats.redactions);
       return { content: [{ type: 'text', text: summary }] };
     }

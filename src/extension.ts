@@ -17,6 +17,8 @@ import { totalRedactions } from './redactor';
 
 const PROVIDER_ID = 'aiTokenOptimizer.provider';
 const SHOW_STATS_COMMAND = 'aiTokenOptimizer.showStats';
+const INPUT_PRICE_SETTING = 'aiCreditInputPricePerMillionUsd';
+const DEFAULT_INPUT_PRICE_PER_MILLION_USD = 1;
 
 let statusBarItem: vscode.StatusBarItem;
 let outputChannel: vscode.OutputChannel;
@@ -26,7 +28,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   outputChannel = vscode.window.createOutputChannel('AI Token Optimizer');
   context.subscriptions.push(outputChannel);
 
-  // Per-session stats file lives in the extension's global storage.
+  // Global storage is shared by all windows, so the status bar shows the
+  // cumulative total across every workspace.
   await vscode.workspace.fs.createDirectory(context.globalStorageUri);
   statsFilePath = join(context.globalStorageUri.fsPath, 'stats.json');
 
@@ -45,6 +48,15 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   watcher.onDidCreate(refreshStatusBar);
   watcher.onDidChange(refreshStatusBar);
   context.subscriptions.push(watcher);
+
+  // Other windows may have updated the total; resync when this one is focused.
+  context.subscriptions.push(
+    vscode.window.onDidChangeWindowState((state) => {
+      if (state.focused) {
+        void refreshStatusBar();
+      }
+    })
+  );
 
   // Command: show detailed savings breakdown.
   context.subscriptions.push(
@@ -80,22 +92,24 @@ export function createServerDefinition(
     {
       ELECTRON_RUN_AS_NODE: '1',
       STATS_FILE: statsFilePath,
-      WORKSPACE_ROOT: workspaceRoot
+      WORKSPACE_ROOT: workspaceRoot,
+      AI_CREDIT_INPUT_PRICE_PER_MILLION_USD: String(getInputPricePerMillionUsd())
     }
   );
 }
 
 /** Reads current stats and updates the status bar label. */
 async function refreshStatusBar(): Promise<void> {
-  const stats = await readStats(statsFilePath);
+  const stats = await readStats(statsFilePath, getInputPricePerMillionUsd());
   statusBarItem.text =
     `$(zap) Saved ${formatTokens(stats.totalSavedTokens)} tokens · ` +
+    `~${formatAICredits(stats.totalEstimatedSavedAICredits)} AI credits · ` +
     `$(shield) ${totalRedactions(stats.redactions)} redacted`;
 }
 
 /** Opens the output channel with a detailed savings breakdown. */
 async function showStats(): Promise<void> {
-  const stats = await readStats(statsFilePath);
+  const stats = await readStats(statsFilePath, getInputPricePerMillionUsd());
   const pct = savedPct(stats);
 
   outputChannel.clear();
@@ -106,6 +120,15 @@ async function showStats(): Promise<void> {
   outputChannel.appendLine(
     `Tokens saved       : ${stats.totalSavedTokens} (${pct.toFixed(1)}%)`
   );
+  outputChannel.appendLine(
+    `AI credits saved   : ~${formatAICredits(stats.totalEstimatedSavedAICredits)} (estimated)`
+  );
+  outputChannel.appendLine(
+    `Estimate rate      : $${getInputPricePerMillionUsd()} per 1M input tokens`
+  );
+  outputChannel.appendLine(
+    'Estimate only; actual Copilot usage depends on model pricing and cached tokens.'
+  );
   const r = stats.redactions;
   outputChannel.appendLine(`Redacted (total)   : ${totalRedactions(r)}`);
   outputChannel.appendLine(`  Secrets / keys   : ${r.secrets}`);
@@ -114,6 +137,16 @@ async function showStats(): Promise<void> {
   outputChannel.appendLine(`  MAC addresses    : ${r.mac}`);
   outputChannel.appendLine(`  E-mail addresses : ${r.email}`);
   outputChannel.show(true);
+}
+
+function getInputPricePerMillionUsd(): number {
+  const price = vscode.workspace
+    .getConfiguration('aiTokenOptimizer')
+    .get<number>(INPUT_PRICE_SETTING, DEFAULT_INPUT_PRICE_PER_MILLION_USD);
+  if (!Number.isFinite(price) || price < 0) {
+    throw new Error(`${INPUT_PRICE_SETTING} must be a non-negative number.`);
+  }
+  return price;
 }
 
 /** Computes the overall saved percentage for a stats accumulator. */
@@ -130,4 +163,8 @@ function formatTokens(count: number): string {
   }
   // return `${(count / 100000).toFixed(1)}k`;
   return `${count}`;
+}
+
+function formatAICredits(count: number): string {
+  return String(Number(count.toFixed(6)));
 }

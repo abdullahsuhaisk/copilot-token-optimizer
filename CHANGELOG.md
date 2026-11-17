@@ -4,8 +4,17 @@ All notable changes to the "ai-token-optimizer" extension will be documented in 
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.0.5] - 2026-11-17
+
+- Fix: Status bar shows the cumulative total across all VS Code windows/projects.
+  Concurrent updates from multiple windows no longer overwrite each other, and a
+  window resyncs the total when it regains focus.
+
 ## [0.0.4] - 2026-11-02
 
+- Added estimated GitHub AI Credits saved alongside token savings. Configure
+  `aiTokenOptimizer.aiCreditInputPricePerMillionUsd` to match the model's input
+  price; credit totals are estimates, not actual Copilot billing data.
 - Fix: MCP server no longer requires `node` on PATH; uses VS Code's bundled runtime.
 
 ## [0.0.3] - 2026-11-02

@@ -12,7 +12,10 @@ vi.mock('vscode', () => {
   return {
     McpStdioServerDefinition,
     Uri: { joinPath: (base: { fsPath: string }, ...p: string[]) => ({ fsPath: [base.fsPath, ...p].join('/') }) },
-    workspace: { workspaceFolders: [{ uri: { fsPath: '/ws' } }] },
+    workspace: {
+      workspaceFolders: [{ uri: { fsPath: '/ws' } }],
+      getConfiguration: () => ({ get: (_key: string, defaultValue: number) => defaultValue })
+    },
     window: {},
     lm: {},
     commands: {},
@@ -34,6 +37,7 @@ describe('createServerDefinition', () => {
   it('runs the runtime as plain Node with string env values', () => {
     expect(def.env.ELECTRON_RUN_AS_NODE).toBe('1');
     expect(def.env.WORKSPACE_ROOT).toBe('/ws');
+    expect(def.env.AI_CREDIT_INPUT_PRICE_PER_MILLION_USD).toBe('1');
     expect(typeof def.env.ELECTRON_RUN_AS_NODE).toBe('string');
     expect(typeof def.env.WORKSPACE_ROOT).toBe('string');
   });

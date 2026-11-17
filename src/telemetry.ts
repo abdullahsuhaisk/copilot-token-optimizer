@@ -9,6 +9,7 @@
  */
 
 import { promises as fs } from 'node:fs';
+import { randomUUID } from 'node:crypto';
 import { get_encoding, type Tiktoken } from 'tiktoken';
 import { emptyRedactionCounts, type RedactionCounts } from './redactor.js';
 
@@ -75,6 +76,8 @@ export interface SessionStats {
   totalOptimizedTokens: number;
   /** Sum of saved tokens across all calls. */
   totalSavedTokens: number;
+  /** Estimated GitHub AI Credits saved, using the configured input token price. */
+  totalEstimatedSavedAICredits: number;
   /** Sensitive values masked across all calls, per category. */
   redactions: RedactionCounts;
 }
@@ -86,8 +89,17 @@ export function emptyStats(): SessionStats {
     totalRawTokens: 0,
     totalOptimizedTokens: 0,
     totalSavedTokens: 0,
+    totalEstimatedSavedAICredits: 0,
     redactions: emptyRedactionCounts()
   };
+}
+
+/** Converts saved input tokens to AI Credits at 100 credits per USD. */
+export function estimateSavedAICredits(
+  savedTokens: number,
+  inputPricePerMillionUsd: number
+): number {
+  return (savedTokens * inputPricePerMillionUsd) / 10_000;
 }
 
 /**
@@ -96,15 +108,22 @@ export function emptyStats(): SessionStats {
  *
  * @param filePath Absolute path to the stats JSON file.
  */
-export async function readStats(filePath: string): Promise<SessionStats> {
+export async function readStats(
+  filePath: string,
+  inputPricePerMillionUsd = 1
+): Promise<SessionStats> {
   try {
     const raw = await fs.readFile(filePath, 'utf8');
     const parsed = JSON.parse(raw) as Partial<SessionStats>;
+    const totalSavedTokens = parsed.totalSavedTokens ?? 0;
     return {
       calls: parsed.calls ?? 0,
       totalRawTokens: parsed.totalRawTokens ?? 0,
       totalOptimizedTokens: parsed.totalOptimizedTokens ?? 0,
-      totalSavedTokens: parsed.totalSavedTokens ?? 0,
+      totalSavedTokens,
+      totalEstimatedSavedAICredits:
+        parsed.totalEstimatedSavedAICredits ??
+        estimateSavedAICredits(totalSavedTokens, inputPricePerMillionUsd),
       redactions: { ...emptyRedactionCounts(), ...parsed.redactions }
     };
   } catch {
@@ -125,26 +144,70 @@ export async function readStats(filePath: string): Promise<SessionStats> {
 export async function recordSavings(
   filePath: string,
   record: SavingsRecord,
-  redactions: RedactionCounts = emptyRedactionCounts()
+  redactions: RedactionCounts = emptyRedactionCounts(),
+  inputPricePerMillionUsd = 1
 ): Promise<SessionStats> {
-  const current = await readStats(filePath);
-  const r = current.redactions;
-  const updated: SessionStats = {
-    calls: current.calls + 1,
-    totalRawTokens: current.totalRawTokens + record.rawTokens,
-    totalOptimizedTokens: current.totalOptimizedTokens + record.optimizedTokens,
-    totalSavedTokens: current.totalSavedTokens + record.savedTokens,
-    redactions: {
-      secrets: r.secrets + redactions.secrets,
-      ipv4: r.ipv4 + redactions.ipv4,
-      ipv6: r.ipv6 + redactions.ipv6,
-      mac: r.mac + redactions.mac,
-      email: r.email + redactions.email
-    }
-  };
+  return withFileLock(filePath, async () => {
+    const current = await readStats(filePath, inputPricePerMillionUsd);
+    const r = current.redactions;
+    const updated: SessionStats = {
+      calls: current.calls + 1,
+      totalRawTokens: current.totalRawTokens + record.rawTokens,
+      totalOptimizedTokens: current.totalOptimizedTokens + record.optimizedTokens,
+      totalSavedTokens: current.totalSavedTokens + record.savedTokens,
+      totalEstimatedSavedAICredits:
+        current.totalEstimatedSavedAICredits +
+        estimateSavedAICredits(record.savedTokens, inputPricePerMillionUsd),
+      redactions: {
+        secrets: r.secrets + redactions.secrets,
+        ipv4: r.ipv4 + redactions.ipv4,
+        ipv6: r.ipv6 + redactions.ipv6,
+        mac: r.mac + redactions.mac,
+        email: r.email + redactions.email
+      }
+    };
 
-  const tempPath = `${filePath}.tmp`;
-  await fs.writeFile(tempPath, JSON.stringify(updated, null, 2), 'utf8');
-  await fs.rename(tempPath, filePath);
-  return updated;
+    const tempPath = `${filePath}.${process.pid}.${randomUUID()}.tmp`;
+    await fs.writeFile(tempPath, JSON.stringify(updated, null, 2), 'utf8');
+    await fs.rename(tempPath, filePath);
+    return updated;
+  });
+}
+
+const LOCK_RETRY_MS = 20;
+const LOCK_TIMEOUT_MS = 5_000;
+const LOCK_STALE_MS = 10_000;
+
+/**
+ * Serializes read-modify-write of the stats file across processes. Every VS
+ * Code window runs its own MCP server against the same global file, so without
+ * this lock concurrent updates would overwrite each other and lose savings.
+ */
+async function withFileLock<T>(filePath: string, fn: () => Promise<T>): Promise<T> {
+  const lockPath = `${filePath}.lock`;
+  const deadline = Date.now() + LOCK_TIMEOUT_MS;
+  for (;;) {
+    try {
+      await fs.mkdir(lockPath);
+      break;
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'EEXIST') {
+        throw err;
+      }
+      const stat = await fs.stat(lockPath).catch(() => undefined);
+      if (stat && Date.now() - stat.mtimeMs > LOCK_STALE_MS) {
+        await fs.rm(lockPath, { recursive: true, force: true });
+        continue;
+      }
+      if (Date.now() > deadline) {
+        throw new Error(`Timed out acquiring stats lock: ${lockPath}`);
+      }
+      await new Promise((resolve) => setTimeout(resolve, LOCK_RETRY_MS));
+    }
+  }
+  try {
+    return await fn();
+  } finally {
+    await fs.rm(lockPath, { recursive: true, force: true });
+  }
 }

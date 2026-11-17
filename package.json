@@ -2,7 +2,7 @@
   "name": "token-saver-mcp",
   "displayName": "Enterprise AI Token Optimizer",
   "description": "MCP-based context manager that prunes and compresses payloads before they reach the LLM, with real-time token-savings telemetry.",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "publisher": "abdullahsuhaisik",
   "icon": "images/icon.png",
   "license": "MIT",
@@ -34,6 +34,17 @@
         "title": "AI Token Optimizer: Show Token Savings"
       }
     ],
+    "configuration": {
+      "title": "AI Token Optimizer",
+      "properties": {
+        "aiTokenOptimizer.aiCreditInputPricePerMillionUsd": {
+          "type": "number",
+          "default": 1,
+          "minimum": 0,
+          "description": "Model input price in USD per 1 million tokens. Used to estimate GitHub AI Credits saved (1 AI Credit = $0.01); set this to the rate for the Copilot model you use."
+        }
+      }
+    },
     "mcpServerDefinitionProviders": [
       {
         "id": "aiTokenOptimizer.provider",
