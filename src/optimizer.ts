@@ -9,10 +9,8 @@
  * This module intentionally has NO dependency on the `vscode` API so it can be
  * reused from both the extension host and the standalone MCP server process.
  *
- * Design rule: the default "conservative" level MUST NOT change the semantic
- * meaning of code. It only removes comments, collapses whitespace and folds
- * exactly-repeated consecutive lines. Anything that could alter program
- * behaviour belongs to a higher (opt-in) level.
+ * The conservative level uses known comment syntax only. Markdown is preserved
+ * as-is, and unknown languages are not guessed to avoid deleting content.
  *
  * Sensitive values (secrets, IP/MAC addresses, e-mails) are masked on every
  * level unless `redact: false` is passed.
@@ -29,8 +27,8 @@ export interface OptimizeOptions {
   readonly level?: OptimizationLevel;
   /**
    * Language identifier (VS Code `languageId`, e.g. `typescript`, `python`).
-   * Used to pick the correct comment syntax. When omitted, a safe superset of
-   * comment styles is stripped.
+   * Used to pick the correct comment syntax. Unknown and omitted languages do
+   * not have comments stripped.
    */
   readonly languageId?: string;
   /** Mask secrets, IP/MAC addresses and e-mails. Defaults to `true`. */
@@ -67,9 +65,14 @@ const HASH_LIKE: CommentSyntax = {
   block: []
 };
 
+const NO_COMMENTS: CommentSyntax = {
+  line: [],
+  block: []
+};
+
 /**
- * Maps a VS Code `languageId` to its comment syntax. Languages we do not know
- * about fall back to a safe superset that strips both `//`/`/* *​/` and `#`.
+ * Maps known VS Code `languageId` values to comment syntax; unknown formats
+ * are left alone instead of guessing at comment markers.
  */
 function commentSyntaxFor(languageId?: string): CommentSyntax {
   switch (languageId) {
@@ -97,12 +100,13 @@ function commentSyntaxFor(languageId?: string): CommentSyntax {
     case 'perl':
     case 'r':
       return HASH_LIKE;
+    case 'markdown':
+    case 'mdx':
+    case 'plaintext':
+    case 'log':
+      return NO_COMMENTS;
     default:
-      // Unknown language: strip the union of common comment styles.
-      return {
-        line: ['//', '#'],
-        block: [['/*', '*/']]
-      };
+      return NO_COMMENTS;
   }
 }
 
@@ -172,6 +176,12 @@ function deduplicateConsecutiveLines(lines: string[]): string[] {
   return out;
 }
 
+function looksLikeMarkdown(text: string): boolean {
+  return /^[ \t]*(?:#{1,6}[ \t]+\S|`{3,}|~{3,}|[-*+][ \t]+\S|\d+[.)][ \t]+\S|>[ \t]?\S)/m.test(
+    text
+  );
+}
+
 /**
  * Optimizes a text payload by removing comments, collapsing redundant
  * whitespace and folding repeated lines.
@@ -184,55 +194,63 @@ export function optimize(text: string, options: OptimizeOptions = {}): OptimizeR
   const level = options.level ?? 'conservative';
   const syntax = commentSyntaxFor(options.languageId);
   const rawChars = text.length;
+  const isMarkdown =
+    options.languageId === 'markdown' ||
+    options.languageId === 'mdx' ||
+    (options.languageId === undefined && looksLikeMarkdown(text));
+  let optimized = text;
 
-  // 1. Strip block comments across the whole payload.
-  let working = stripBlockComments(text, syntax);
+  if (!isMarkdown) {
+    // 1. Strip block comments across the whole payload.
+    const working = stripBlockComments(text, syntax);
 
-  // 2. Process line-by-line: drop full-line comments and normalize whitespace.
-  const rawLines = working.split('\n');
-  const keptLines: string[] = [];
+    // 2. Process line-by-line: drop full-line comments and normalize whitespace.
+    const rawLines = working.split('\n');
+    const keptLines: string[] = [];
 
-  for (const line of rawLines) {
-    if (stripFullLineComments(line, syntax)) {
-      continue;
-    }
-    // Trim trailing whitespace; preserve leading indentation for readability.
-    keptLines.push(line.replace(/\s+$/, ''));
-  }
-
-  // 3. Deduplicate consecutive identical lines (log-style noise).
-  let processed = deduplicateConsecutiveLines(keptLines);
-
-  // 4. Collapse 2+ consecutive blank lines into a single blank line.
-  const collapsed: string[] = [];
-  let blankRun = 0;
-  for (const line of processed) {
-    if (line.trim().length === 0) {
-      blankRun++;
-      if (blankRun > 1) {
+    for (const line of rawLines) {
+      if (stripFullLineComments(line, syntax)) {
         continue;
       }
-    } else {
-      blankRun = 0;
+      // Trim trailing whitespace; preserve leading indentation for readability.
+      keptLines.push(line.replace(/\s+$/, ''));
     }
-    collapsed.push(line);
-  }
-  processed = collapsed;
 
-  // 5. Aggressive level: also drop leading indentation entirely. This changes
-  //    formatting (not semantics for whitespace-insensitive languages) so it is
-  //    opt-in only. Indentation-sensitive languages keep their structure
-  //    because we only collapse runs of spaces, never remove newlines.
-  if (level === 'aggressive') {
-    processed = processed.map((line) => line.replace(/[ \t]{2,}/g, ' '));
-  }
+    // 3. Deduplicate consecutive identical lines (log-style noise).
+    let processed = deduplicateConsecutiveLines(keptLines);
 
-  // Remove a single trailing blank line for a tidy result.
-  while (processed.length > 0 && processed[processed.length - 1].trim() === '') {
-    processed.pop();
-  }
+    // 4. Collapse 2+ consecutive blank lines into a single blank line.
+    const collapsed: string[] = [];
+    let blankRun = 0;
+    for (const line of processed) {
+      if (line.trim().length === 0) {
+        blankRun++;
+        if (blankRun > 1) {
+          continue;
+        }
+      } else {
+        blankRun = 0;
+      }
+      collapsed.push(line);
+    }
+    processed = collapsed;
 
-  let optimized = processed.join('\n');
+    // Only explicitly plain text may have repeated horizontal spaces folded.
+    if (level === 'aggressive' && options.languageId === 'plaintext') {
+      processed = processed.map((line) => {
+        const indentation = line.match(/^[ \t]*/)?.[0] ?? '';
+        const content = line.slice(indentation.length).replace(/[ \t]{2,}/g, ' ');
+        return `${indentation}${content}`;
+      });
+    }
+
+    // Remove a single trailing blank line for a tidy result.
+    while (processed.length > 0 && processed[processed.length - 1].trim() === '') {
+      processed.pop();
+    }
+
+    optimized = processed.join('\n');
+  }
 
   // Redact last so counts reflect only what would actually reach the model.
   let redactions = emptyRedactionCounts();

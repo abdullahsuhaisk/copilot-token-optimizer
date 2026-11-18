@@ -74,6 +74,34 @@ describe('optimize - conservative (default)', () => {
     expect(optimized).toContain('y = 2  # inline stays');
     expect(optimized).not.toContain('# comment');
   });
+
+  it('preserves Markdown formatting in both optimization levels', () => {
+    const markdown = '# Overview\n\nParagraph  \n\n---\n---';
+
+    expect(optimize(markdown, { languageId: 'markdown' }).optimized).toBe(markdown);
+    expect(
+      optimize(markdown, { languageId: 'markdown', level: 'aggressive' }).optimized
+    ).toBe(markdown);
+  });
+
+  it('preserves recognizable Markdown even when no languageId is supplied', () => {
+    const markdown = '# Overview\n\nParagraph  \n\n---\n---';
+    expect(optimize(markdown).optimized).toBe(markdown);
+  });
+
+  it('keeps code indentation and literal whitespace in aggressive mode', () => {
+    const python = 'if ready:\n    execute()\n    label = "a   b"';
+    expect(
+      optimize(python, { languageId: 'python', level: 'aggressive' }).optimized
+    ).toBe(python);
+  });
+
+  it('folds repeated spaces only in explicitly plain text aggressive mode', () => {
+    const plainText = '  aligned    words';
+    expect(
+      optimize(plainText, { languageId: 'plaintext', level: 'aggressive' }).optimized
+    ).toBe('  aligned words');
+  });
 });
 
 describe('optimize - savings target band', () => {
@@ -201,9 +229,9 @@ describe('measureSavings', () => {
     expect(s.savedPct).toBe(0);
   });
 
-  it('never reports negative savings when optimized is unexpectedly larger', () => {
+  it('reports net token growth when the optimized text is larger', () => {
     const s = measureSavings('a', 'a much longer string than before');
-    expect(s.savedTokens).toBe(0);
-    expect(s.savedPct).toBe(0);
+    expect(s.savedTokens).toBeLessThan(0);
+    expect(s.savedPct).toBeLessThan(0);
   });
 });

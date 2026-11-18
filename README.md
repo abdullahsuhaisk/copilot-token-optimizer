@@ -5,11 +5,12 @@ A VS Code extension + MCP (Model Context Protocol) server that prunes and compre
 ## Features
 
 - **MCP server (stdio)** — exposes three tools: `optimize_context`, `read_file_optimized`, and `get_token_stats`.
-- **Status bar telemetry** — shows cumulative tokens saved for the session live (`$(zap) Saved N tokens`).
+- **Status bar telemetry** — shows the cumulative net token/credit change for complete tool replies, including the summary.
 - **Estimated AI Credits savings** — estimates credits saved from input tokens using the configured model price (`aiTokenOptimizer.aiCreditInputPricePerMillionUsd`, default `$1/1M tokens`).
-- **Detailed savings report command** — `AI Token Optimizer: Show Token Savings` lists raw/optimized token counts and the saved percentage in an output panel.
+- **Detailed savings report command** — `AI Token Optimizer: Show Token Savings` separates payload savings from net savings across the complete textual MCP reply, including the summary line.
 - **Safe file reads** — `read_file_optimized` rejects requests that escape the workspace root (path traversal).
-- **Two optimization levels** — `conservative` (strips comments/whitespace without changing meaning) and `aggressive`.
+- **Two optimization levels** — comment removal uses known language syntax; Markdown is preserved and unknown content is not guessed to be code. `aggressive` folds repeated spaces only for explicitly selected `plaintext`, preserving code and Markdown spacing.
+- **Accurate reply accounting** — reports token growth as well as savings, and measures the complete textual tool reply (summary plus optimized content) separately from payload-only savings.
 - **Sensitive data redaction** — secrets/API keys, passwords, private keys, IPv4/IPv6 and MAC addresses and e-mails are masked (`[REDACTED_SECRET]`, `[REDACTED_IPV4]`, …) before reaching the LLM; counts are shown in tool output, the status bar and the savings report.
 
 ## Architecture
@@ -126,7 +127,54 @@ The model decides which tool to call, so an extension cannot force it. To maximi
 
 - Optimization only happens at the MCP tool-output boundary; VS Code currently has no API to transparently rewrite Copilot's own prompt, so the model's direct input cannot be altered.
 - AI Credits are an estimate based on uncached input-token price, not Copilot billing data. Set `aiTokenOptimizer.aiCreditInputPricePerMillionUsd` to the input price for your model; actual usage can differ due to model choice and cached tokens.
-- Stats are stored in `stats.json` inside the extension's global storage directory, shared by all VS Code windows, and show the cumulative total across projects.
+- Stats are stored in `stats.json` inside the extension's global storage directory, shared by all VS Code windows, and show the cumulative total across projects. Complete-reply measurements start with calls after this update; older records remain in payload-only totals because they did not store the reply summary.
+
+## Use with Claude Code, Claude Desktop, Cursor, and other MCP clients
+
+The MCP server uses the standard local `stdio` transport, so it can also run from MCP clients other than VS Code. No VS Code extension is needed in those clients.
+
+1. Clone this repository and build the server:
+
+   ```bash
+   npm install
+   npm run compile
+   ```
+
+   Use Node.js 20 or later. Keep the clone and its `node_modules` directory available; the client starts `out/mcp-server.js` directly.
+
+2. Set the server script path to the absolute path of this clone, and set `WORKSPACE_ROOT` to the project whose files the AI should read. `read_file_optimized` is restricted to that workspace root. `STATS_FILE` is optional; configure it to a writable file path if you also want to persist and view savings across clients.
+
+### Claude Code
+
+From the project directory you want Claude Code to work in, run this command after replacing both example paths:
+
+```bash
+claude mcp add --transport stdio --scope local \
+  --env "WORKSPACE_ROOT=/absolute/path/to/your/project" \
+  --env "STATS_FILE=/absolute/path/to/your/project/.ai-token-optimizer-stats.json" \
+  ai-token-optimizer -- node /absolute/path/to/copilot-token-optimizer/out/mcp-server.js
+```
+
+### Claude Desktop and Cursor
+
+Add the following entry to the `mcpServers` object in the client's MCP configuration. Replace the example paths with absolute paths. For Claude Desktop, open **Settings → Developer → Edit Config**; for Cursor, add it to `.cursor/mcp.json` in your project. If the file already has an `mcpServers` object, add only the `ai-token-optimizer` entry rather than replacing the existing servers.
+
+```json
+{
+  "mcpServers": {
+    "ai-token-optimizer": {
+      "command": "node",
+      "args": ["/absolute/path/to/copilot-token-optimizer/out/mcp-server.js"],
+      "env": {
+        "WORKSPACE_ROOT": "/absolute/path/to/your/project",
+        "STATS_FILE": "/absolute/path/to/your/project/.ai-token-optimizer-stats.json"
+      }
+    }
+  }
+}
+```
+
+Restart or reload the client after saving its configuration. The three tools (`optimize_context`, `read_file_optimized`, and `get_token_stats`) will then be available. Omit `STATS_FILE` if you do not need persistent savings statistics.
 
 ## License
 
@@ -141,11 +189,12 @@ VS Code eklentisi + MCP (Model Context Protocol) sunucusu olarak çalışan, Cop
 ## Özellikler
 
 - **MCP sunucusu (stdio)** — `optimize_context`, `read_file_optimized` ve `get_token_stats` adında üç araç sunar.
-- **Durum çubuğu telemetrisi** — Oturum boyunca kazanılan token sayısını canlı olarak gösterir (`$(zap) Saved N tokens`).
+- **Durum çubuğu telemetrisi** — Özet satırı dâhil tam araç yanıtlarının birikimli net token/kredi değişimini gösterir.
 - **Tahmini AI Credits tasarrufu** — Kaydedilen giriş tokenlarını, yapılandırılan model fiyatına göre AI kredisine dönüştürür (`aiTokenOptimizer.aiCreditInputPricePerMillionUsd`, varsayılan `$1/1M token`).
-- **Detaylı rapor komutu** — `AI Token Optimizer: Show Token Savings` komutu, ham/optimize edilmiş token sayıları ve kazanım yüzdesini bir çıktı panelinde listeler.
+- **Detaylı rapor komutu** — `AI Token Optimizer: Show Token Savings`, içerik tasarrufunu özet satırı dâhil tam MCP yanıtının net tasarrufundan ayrı gösterir.
 - **Güvenli dosya okuma** — `read_file_optimized` aracı, çalışma alanı kökü dışına çıkan (path traversal) istekleri reddeder.
-- **İki seviyeli optimizasyon** — `conservative` (anlamı değiştirmeden yorum/boşluk temizliği) ve `aggressive` seviyeleri desteklenir.
+- **İki seviyeli optimizasyon** — yorumlar yalnızca bilinen dil sözdizimine göre kaldırılır; Markdown korunur ve bilinmeyen içerik kod varsayılmaz. `aggressive`, kod ve Markdown boşluklarını korur; tekrar eden boşlukları yalnızca `plaintext` açıkça seçildiğinde daraltır.
+- **Doğru yanıt ölçümü** — içerik tasarrufunun yanında token artışını da raporlar; özet satırı ve optimize edilmiş içerik dâhil tam metin yanıtını ayrı ölçer.
 - **Hassas veri maskeleme** — secret/API anahtarları, şifreler, private key'ler, IPv4/IPv6 ve MAC adresleri ile e-postalar LLM'e ulaşmadan maskelenir (`[REDACTED_SECRET]`, `[REDACTED_IPV4]`, …); sayılar araç çıktısında, durum çubuğunda ve tasarruf raporunda gösterilir.
 
 ## Mimari
@@ -262,7 +311,54 @@ Hangi aracın çağrılacağına model karar verir; eklenti bunu zorlayamaz. Kul
 
 - Optimizasyon yalnızca MCP araç çıktısı seviyesinde uygulanır; VS Code şu an Copilot'un kendi prompt'unu şeffaf biçimde yeniden yazmak için bir API sunmadığından, doğrudan model girişini değiştirmek mümkün değildir.
 - AI Credits değeri, önbelleksiz giriş-token fiyatına dayalı bir tahmindir; Copilot fatura verisi değildir. `aiTokenOptimizer.aiCreditInputPricePerMillionUsd` ayarını kullandığınız modelin giriş-token fiyatına göre düzenleyin; model ve önbellek kullanımı gerçek tutarı değiştirebilir.
-- İstatistikler, eklentinin global storage dizinindeki `stats.json` dosyasında saklanır; tüm VS Code pencereleri bu dosyayı paylaşır ve projeler genelindeki toplamı gösterir.
+- İstatistikler, eklentinin global storage dizinindeki `stats.json` dosyasında saklanır; tüm VS Code pencereleri bu dosyayı paylaşır ve projeler genelindeki toplamı gösterir. Tam yanıt ölçümleri bu güncellemeden sonraki çağrılarla başlar; eski kayıtlar yanıt özetini içermediğinden içerik ölçümü olarak korunur.
+
+## Claude Code, Claude Desktop, Cursor ve diğer MCP istemcilerinde kullanım
+
+MCP sunucusu standart yerel `stdio` aktarımını kullanır; bu nedenle VS Code dışındaki MCP istemcilerinde de çalışır. Bu istemcilerde VS Code eklentisine gerek yoktur.
+
+1. Bu depoyu klonlayıp sunucuyu derleyin:
+
+   ```bash
+   npm install
+   npm run compile
+   ```
+
+   Node.js 20 veya üzeri gereklidir. Klonu ve `node_modules` dizinini erişilebilir tutun; istemci doğrudan `out/mcp-server.js` dosyasını başlatır.
+
+2. Sunucu betiği için klonun mutlak yolunu, `WORKSPACE_ROOT` için de AI'ın okuyacağı projenin kök dizinini kullanın. `read_file_optimized` yalnızca bu kök dizin içindeki dosyalara erişebilir. Tasarruf istatistiklerini istemciler arasında saklamak ve görüntülemek için isteğe bağlı `STATS_FILE` değerini yazılabilir bir dosya yoluna ayarlayın.
+
+### Claude Code
+
+Claude Code'un çalışacağı proje dizininde, örnek yolları kendi mutlak yollarınızla değiştirerek şu komutu çalıştırın:
+
+```bash
+claude mcp add --transport stdio --scope local \
+  --env "WORKSPACE_ROOT=/mutlak/yol/projeniz" \
+  --env "STATS_FILE=/mutlak/yol/projeniz/.ai-token-optimizer-stats.json" \
+  ai-token-optimizer -- node /mutlak/yol/copilot-token-optimizer/out/mcp-server.js
+```
+
+### Claude Desktop ve Cursor
+
+İstemcinin MCP yapılandırmasındaki `mcpServers` nesnesine aşağıdaki girdiyi ekleyin ve örnek yolları mutlak yollarınızla değiştirin. Claude Desktop'ta **Settings → Developer → Edit Config** yolunu izleyin; Cursor'da projenizdeki `.cursor/mcp.json` dosyasına ekleyin. Dosyada zaten bir `mcpServers` nesnesi varsa diğer sunucuları silmek yerine yalnızca `ai-token-optimizer` girdisini ekleyin.
+
+```json
+{
+  "mcpServers": {
+    "ai-token-optimizer": {
+      "command": "node",
+      "args": ["/mutlak/yol/copilot-token-optimizer/out/mcp-server.js"],
+      "env": {
+        "WORKSPACE_ROOT": "/mutlak/yol/projeniz",
+        "STATS_FILE": "/mutlak/yol/projeniz/.ai-token-optimizer-stats.json"
+      }
+    }
+  }
+}
+```
+
+Yapılandırmayı kaydettikten sonra istemciyi yeniden başlatın veya MCP sunucularını yeniden yükleyin. Üç araç (`optimize_context`, `read_file_optimized` ve `get_token_stats`) kullanılabilir hale gelir. Kalıcı tasarruf istatistiklerine ihtiyacınız yoksa `STATS_FILE` ayarını kaldırabilirsiniz.
 
 ## Lisans
 
@@ -277,11 +373,12 @@ Estensione VS Code + server MCP (Model Context Protocol) che riduce e comprime i
 ## Funzionalità
 
 - **Server MCP (stdio)** — espone tre strumenti: `optimize_context`, `read_file_optimized` e `get_token_stats`.
-- **Telemetria nella barra di stato** — mostra in tempo reale i token risparmiati nella sessione (`$(zap) Saved N tokens`).
+- **Telemetria nella barra di stato** — mostra la variazione netta cumulativa di token/crediti delle risposte complete, inclusa la riga di riepilogo.
 - **Risparmio stimato di AI Credits** — stima i crediti risparmiati dai token di input usando il prezzo del modello configurato (`aiTokenOptimizer.aiCreditInputPricePerMillionUsd`, predefinito `$1/1M token`).
-- **Comando di report dettagliato** — `AI Token Optimizer: Show Token Savings` elenca in un pannello di output i token grezzi/ottimizzati e la percentuale di risparmio.
+- **Comando di report dettagliato** — `AI Token Optimizer: Show Token Savings` distingue il risparmio del contenuto dal risparmio netto dell'intera risposta MCP testuale, inclusa la riga di riepilogo.
 - **Lettura sicura dei file** — `read_file_optimized` rifiuta le richieste che escono dalla radice del workspace (path traversal).
-- **Due livelli di ottimizzazione** — `conservative` (rimuove commenti/spazi senza alterare il significato) e `aggressive`.
+- **Due livelli di ottimizzazione** — i commenti vengono rimossi solo usando la sintassi nota del linguaggio; Markdown viene preservato e il contenuto sconosciuto non viene interpretato come codice. `aggressive` riduce gli spazi ripetuti solo per `plaintext` selezionato esplicitamente, preservando codice e Markdown.
+- **Misurazione accurata delle risposte** — rileva anche l'aumento di token e misura separatamente l'intero testo della risposta MCP (riepilogo e contenuto ottimizzato) dal solo contenuto.
 - **Oscuramento dei dati sensibili** — segreti/chiavi API, password, chiavi private, indirizzi IPv4/IPv6 e MAC ed e-mail vengono mascherati (`[REDACTED_SECRET]`, `[REDACTED_IPV4]`, …) prima di raggiungere l'LLM; i conteggi sono mostrati nell'output degli strumenti, nella barra di stato e nel report dei risparmi.
 
 ## Architettura
@@ -398,7 +495,54 @@ npm install
 
 - L'ottimizzazione avviene solo al confine dell'output degli strumenti MCP; VS Code al momento non offre un'API per riscrivere in modo trasparente il prompt di Copilot, quindi l'input diretto del modello non può essere modificato.
 - Gli AI Credits sono una stima basata sul prezzo dei token di input non memorizzati nella cache, non sui dati di fatturazione Copilot. Imposta `aiTokenOptimizer.aiCreditInputPricePerMillionUsd` in base al prezzo del modello; il modello e i token nella cache possono modificare il consumo effettivo.
-- Le statistiche sono salvate in `stats.json` nella directory di global storage dell'estensione, sono condivise da tutte le finestre di VS Code e mostrano il totale cumulativo tra i progetti.
+- Le statistiche sono salvate in `stats.json` nella directory di global storage dell'estensione, sono condivise da tutte le finestre di VS Code e mostrano il totale cumulativo tra i progetti. Le misurazioni della risposta completa iniziano con le chiamate dopo questo aggiornamento; i dati precedenti restano nei totali del solo contenuto perché non includevano il riepilogo della risposta.
+
+## Utilizzo con Claude Code, Claude Desktop, Cursor e altri client MCP
+
+Il server MCP usa il trasporto locale standard `stdio`, quindi può essere avviato anche da client MCP diversi da VS Code. In questi client non è necessaria l'estensione VS Code.
+
+1. Clona questo repository e compila il server:
+
+   ```bash
+   npm install
+   npm run compile
+   ```
+
+   È richiesto Node.js 20 o successivo. Mantieni accessibili il clone e la directory `node_modules`; il client avvia direttamente `out/mcp-server.js`.
+
+2. Imposta il percorso assoluto dello script del server e usa `WORKSPACE_ROOT` per indicare il progetto di cui l'AI può leggere i file. `read_file_optimized` è limitato a questa directory principale. `STATS_FILE` è facoltativo; impostalo su un percorso scrivibile per salvare e consultare le statistiche di risparmio tra client diversi.
+
+### Claude Code
+
+Dalla directory del progetto su cui deve lavorare Claude Code, esegui il comando seguente sostituendo entrambi i percorsi di esempio:
+
+```bash
+claude mcp add --transport stdio --scope local \
+  --env "WORKSPACE_ROOT=/percorso/assoluto/del/progetto" \
+  --env "STATS_FILE=/percorso/assoluto/del/progetto/.ai-token-optimizer-stats.json" \
+  ai-token-optimizer -- node /percorso/assoluto/copilot-token-optimizer/out/mcp-server.js
+```
+
+### Claude Desktop e Cursor
+
+Aggiungi la seguente voce all'oggetto `mcpServers` nella configurazione MCP del client e sostituisci i percorsi di esempio con percorsi assoluti. In Claude Desktop, apri **Settings → Developer → Edit Config**; in Cursor, aggiungila al file `.cursor/mcp.json` del progetto. Se esiste già un oggetto `mcpServers`, aggiungi solo la voce `ai-token-optimizer`, senza sostituire gli altri server.
+
+```json
+{
+  "mcpServers": {
+    "ai-token-optimizer": {
+      "command": "node",
+      "args": ["/percorso/assoluto/copilot-token-optimizer/out/mcp-server.js"],
+      "env": {
+        "WORKSPACE_ROOT": "/percorso/assoluto/del/progetto",
+        "STATS_FILE": "/percorso/assoluto/del/progetto/.ai-token-optimizer-stats.json"
+      }
+    }
+  }
+}
+```
+
+Dopo aver salvato la configurazione, riavvia il client o ricarica i server MCP. Saranno disponibili i tre strumenti (`optimize_context`, `read_file_optimized` e `get_token_stats`). Ometti `STATS_FILE` se non ti serve salvare statistiche persistenti.
 
 ## Licenza
 

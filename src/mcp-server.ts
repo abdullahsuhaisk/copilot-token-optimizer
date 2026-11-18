@@ -20,6 +20,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { optimize, type OptimizeResult } from './optimizer.js';
 import {
+  countTokens,
   estimateSavedAICredits,
   measureSavings,
   recordSavings,
@@ -40,13 +41,19 @@ const INPUT_PRICE_PER_MILLION_USD = readInputPricePerMillionUsd();
 const levelSchema = z
   .enum(['conservative', 'aggressive'])
   .optional()
-  .describe('Pruning aggressiveness. Defaults to conservative (no semantic change).');
+  .describe(
+    'Pruning level. Aggressive folds repeated spaces only when languageId is explicitly plaintext.'
+  );
 
 /**
  * Persists a savings measurement when a stats file is configured. Failures are
  * swallowed so telemetry never breaks a tool call.
  */
-async function persist(rawText: string, result: OptimizeResult): Promise<void> {
+async function persist(
+  rawText: string,
+  result: OptimizeResult,
+  responseText: string
+): Promise<void> {
   // Never log the raw payload: it may contain the secrets we just masked.
   process.stderr.write(`[ai-token-optimizer] OPTIMIZED:\n${result.optimized}\n===\n`);
 
@@ -56,7 +63,10 @@ async function persist(rawText: string, result: OptimizeResult): Promise<void> {
   try {
     await recordSavings(
       STATS_FILE,
-      measureSavings(rawText, result.optimized),
+      {
+        ...measureSavings(rawText, result.optimized),
+        responseTokens: countTokens(responseText)
+      },
       result.redactions,
       INPUT_PRICE_PER_MILLION_USD
     );
@@ -90,12 +100,20 @@ function resolveWithinWorkspace(inputPath: string): string {
 /** Builds a one-line, human-readable savings summary for tool output. */
 function savingsLine(rawText: string, result: OptimizeResult): string {
   const s = measureSavings(rawText, result.optimized);
+  const tokenChange =
+    s.savedTokens >= 0
+      ? `saved ${s.savedTokens}, ${s.savedPct.toFixed(1)}%`
+      : `added ${Math.abs(s.savedTokens)}, ${s.savedPct.toFixed(1)}%`;
   return (
-    `Tokens: ${s.rawTokens} -> ${s.optimizedTokens} (saved ${s.savedTokens}, ${s.savedPct.toFixed(1)}%)` +
-    ` | AI credits (est.): ~${formatAICredits(estimateSavedAICredits(s.savedTokens, INPUT_PRICE_PER_MILLION_USD))}` +
+    `Payload tokens: ${s.rawTokens} -> ${s.optimizedTokens} (${tokenChange})` +
+    ` | Payload AI credit change (est.): ${formatAICreditChange(estimateSavedAICredits(s.savedTokens, INPUT_PRICE_PER_MILLION_USD))}` +
     ` ($${INPUT_PRICE_PER_MILLION_USD}/1M input tokens)` +
     ` | ${redactionLine(result.redactions)}`
   );
+}
+
+function toolResponse(rawText: string, result: OptimizeResult): string {
+  return `${savingsLine(rawText, result)}\n${result.optimized}`;
 }
 
 function readInputPricePerMillionUsd(): number {
@@ -109,6 +127,12 @@ function readInputPricePerMillionUsd(): number {
 
 function formatAICredits(count: number): string {
   return String(Number(count.toFixed(6)));
+}
+
+function formatAICreditChange(count: number): string {
+  return count >= 0
+    ? `~${formatAICredits(count)} saved`
+    : `~${formatAICredits(Math.abs(count))} added`;
 }
 
 /** Formats redaction counts, e.g. "Redacted: 3 (secrets 1, IPv4 2, IPv6 0, MAC 0, e-mail 0)". */
@@ -133,8 +157,10 @@ function createServer(): McpServer {
       description:
         'Use this to shrink any large text or code payload (logs, terminal ' +
         'output, pasted code, API responses) before reasoning over it. Prunes ' +
-        'and compresses (strips comments, collapses whitespace, folds repeated ' +
-        'lines) so it consumes fewer tokens, and masks secrets, IP/MAC ' +
+        'and compresses (strips comments only for known languages and collapses ' +
+        'redundant lines) so it consumes fewer tokens. Markdown is preserved; ' +
+        'aggressive space folding is limited to explicit plaintext. It masks ' +
+        'secrets, IP/MAC ' +
         'addresses and e-mails. Returns the optimized text plus a token-savings ' +
         'and redaction summary.',
       inputSchema: {
@@ -149,12 +175,10 @@ function createServer(): McpServer {
     },
     async ({ text, languageId, level }) => {
       const result = optimize(text, { languageId, level });
-      await persist(text, result);
+      const response = toolResponse(text, result);
+      await persist(text, result, response);
       return {
-        content: [
-          { type: 'text', text: savingsLine(text, result) },
-          { type: 'text', text: result.optimized }
-        ]
+        content: [{ type: 'text', text: response }]
       };
     }
   );
@@ -167,7 +191,8 @@ function createServer(): McpServer {
       description:
         'PREFERRED way to read workspace files: use this INSTEAD OF the built-in ' +
         'file read tool whenever you need a file\'s contents. Returns a ' +
-        'token-optimized version of the file (comments/whitespace pruned; ' +
+        'token-optimized version of the file (known-language comments and ' +
+        'redundant whitespace pruned; Markdown formatting is preserved; ' +
         'secrets, IP/MAC addresses and e-mails masked), so it uses fewer tokens ' +
         'and keeps sensitive data out of context. Fall back to the built-in ' +
         'reader only if this tool returns an error or you need exact original ' +
@@ -194,12 +219,10 @@ function createServer(): McpServer {
       const raw = await fs.readFile(absolute, 'utf8');
       const languageId = inferLanguageId(absolute);
       const result = optimize(raw, { languageId, level });
-      await persist(raw, result);
+      const response = toolResponse(raw, result);
+      await persist(raw, result, response);
       return {
-        content: [
-          { type: 'text', text: savingsLine(raw, result) },
-          { type: 'text', text: result.optimized }
-        ]
+        content: [{ type: 'text', text: response }]
       };
     }
   );
@@ -209,7 +232,8 @@ function createServer(): McpServer {
     'get_token_stats',
     {
       title: 'Get Token Stats',
-      description: 'Return cumulative token and estimated AI Credit savings for this session.',
+      description:
+        'Return cumulative payload savings and net token/credit changes after including complete tool reply text and its summary.',
       inputSchema: {},
       annotations: { readOnlyHint: true }
     },
@@ -226,10 +250,15 @@ function createServer(): McpServer {
           : (stats.totalSavedTokens / stats.totalRawTokens) * 100;
       const summary =
         `Calls: ${stats.calls}\n` +
-        `Raw tokens: ${stats.totalRawTokens}\n` +
-        `Optimized tokens: ${stats.totalOptimizedTokens}\n` +
-        `Saved tokens: ${stats.totalSavedTokens} (${pct.toFixed(1)}%)\n` +
-        `Estimated AI credits saved: ~${formatAICredits(stats.totalEstimatedSavedAICredits)}\n` +
+        `Payload raw tokens: ${stats.totalRawTokens}\n` +
+        `Optimized payload tokens: ${stats.totalOptimizedTokens}\n` +
+        `Payload net token change: ${formatNetChange(stats.totalSavedTokens)} (${pct.toFixed(1)}%)\n` +
+        `Payload AI credit change (est.): ${formatAICreditChange(stats.totalEstimatedSavedAICredits)}\n` +
+        `Complete reply measurements: ${stats.responseCalls} calls\n` +
+        `Measured input tokens: ${stats.totalResponseInputTokens}\n` +
+        `Returned text tokens (including summary): ${stats.totalResponseTokens}\n` +
+        `Net tokens after summary: ${formatNetChange(stats.totalNetSavedTokens)}\n` +
+        `Net AI credit change (est.): ${formatAICreditChange(stats.totalEstimatedNetSavedAICredits)}\n` +
         `Current estimate rate: $${INPUT_PRICE_PER_MILLION_USD} per 1M input tokens\n` +
         'Estimate only; actual Copilot usage depends on model pricing and cached tokens.\n' +
         redactionLine(stats.redactions);
@@ -238,6 +267,12 @@ function createServer(): McpServer {
   );
 
   return server;
+}
+
+function formatNetChange(tokens: number): string {
+  return tokens >= 0
+    ? `${tokens} saved`
+    : `${Math.abs(tokens)} added`;
 }
 
 /** Maps a file extension to a VS Code-style languageId for comment handling. */
@@ -258,6 +293,10 @@ function inferLanguageId(filePath: string): string | undefined {
     cs: 'csharp',
     php: 'php',
     sh: 'shellscript',
+    md: 'markdown',
+    mdx: 'mdx',
+    txt: 'plaintext',
+    log: 'log',
     yml: 'yaml',
     yaml: 'yaml'
   };

@@ -3,6 +3,7 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
+  countTokens,
   emptyStats,
   estimateSavedAICredits,
   readStats,
@@ -18,11 +19,17 @@ describe('estimateSavedAICredits', () => {
     expect(estimateSavedAICredits(0, 1)).toBe(0);
     expect(estimateSavedAICredits(1_000_000, 0)).toBe(0);
   });
+
+  it('represents the estimated cost when a reply adds tokens', () => {
+    expect(estimateSavedAICredits(-250_000, 1.2)).toBe(-30);
+  });
 });
 
 describe('emptyStats', () => {
   it('initializes the estimated AI credit total', () => {
     expect(emptyStats().totalEstimatedSavedAICredits).toBe(0);
+    expect(emptyStats().responseCalls).toBe(0);
+    expect(emptyStats().totalNetSavedTokens).toBe(0);
   });
 });
 
@@ -53,6 +60,40 @@ describe('recordSavings', () => {
       expect(updated.totalEstimatedSavedAICredits).toBe(0.015);
       expect(JSON.parse(await readFile(filePath, 'utf8')).totalEstimatedSavedAICredits)
         .toBe(0.015);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  it('measures the complete reply, including its summary, and records net token growth', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'ai-token-optimizer-'));
+    const filePath = join(directory, 'stats.json');
+    try {
+      const input = 'source text';
+      const response = 'Payload summary with token counts\nA longer returned body.';
+      const rawTokens = countTokens(input);
+      const responseTokens = countTokens(response);
+      expect(responseTokens).toBeGreaterThan(rawTokens);
+
+      const updated = await recordSavings(
+        filePath,
+        {
+          rawTokens,
+          optimizedTokens: 4,
+          savedTokens: rawTokens - 4,
+          savedPct: ((rawTokens - 4) / rawTokens) * 100,
+          responseTokens
+        },
+        emptyStats().redactions,
+        2
+      );
+
+      expect(updated.responseCalls).toBe(1);
+      expect(updated.totalResponseInputTokens).toBe(rawTokens);
+      expect(updated.totalResponseTokens).toBe(responseTokens);
+      expect(updated.totalNetSavedTokens).toBe(rawTokens - responseTokens);
+      expect(updated.totalEstimatedNetSavedAICredits)
+        .toBe(estimateSavedAICredits(rawTokens - responseTokens, 2));
     } finally {
       await rm(directory, { recursive: true, force: true });
     }

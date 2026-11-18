@@ -101,9 +101,10 @@ export function createServerDefinition(
 /** Reads current stats and updates the status bar label. */
 async function refreshStatusBar(): Promise<void> {
   const stats = await readStats(statsFilePath, getInputPricePerMillionUsd());
+  const creditChange = stats.totalEstimatedNetSavedAICredits;
   statusBarItem.text =
-    `$(zap) Saved ${formatTokens(stats.totalSavedTokens)} tokens · ` +
-    `~${formatAICredits(stats.totalEstimatedSavedAICredits)} AI credits · ` +
+    `$(zap) Reply ${formatNetTokens(stats.totalNetSavedTokens)} · ` +
+    `${formatAICreditChange(creditChange)} · ` +
     `$(shield) ${totalRedactions(stats.redactions)} redacted`;
 }
 
@@ -115,13 +116,24 @@ async function showStats(): Promise<void> {
   outputChannel.clear();
   outputChannel.appendLine('=== AI Token Optimizer — Session Savings ===');
   outputChannel.appendLine(`Optimization calls : ${stats.calls}`);
-  outputChannel.appendLine(`Raw tokens         : ${stats.totalRawTokens}`);
-  outputChannel.appendLine(`Optimized tokens   : ${stats.totalOptimizedTokens}`);
+  outputChannel.appendLine(`Payload raw tokens : ${stats.totalRawTokens}`);
+  outputChannel.appendLine(`Optimized payload  : ${stats.totalOptimizedTokens}`);
   outputChannel.appendLine(
-    `Tokens saved       : ${stats.totalSavedTokens} (${pct.toFixed(1)}%)`
+    `Payload net change : ${formatNetTokens(stats.totalSavedTokens)} (${pct.toFixed(1)}%)`
   );
   outputChannel.appendLine(
-    `AI credits saved   : ~${formatAICredits(stats.totalEstimatedSavedAICredits)} (estimated)`
+    `Payload credits   : ${formatAICreditChange(stats.totalEstimatedSavedAICredits)} (estimated)`
+  );
+  outputChannel.appendLine(`Complete replies   : ${stats.responseCalls}`);
+  outputChannel.appendLine(`Measured input     : ${stats.totalResponseInputTokens} tokens`);
+  outputChannel.appendLine(
+    `Returned text      : ${stats.totalResponseTokens} tokens (summary included)`
+  );
+  outputChannel.appendLine(
+    `Net reply change   : ${formatNetTokens(stats.totalNetSavedTokens)}`
+  );
+  outputChannel.appendLine(
+    `Net reply credits  : ${formatAICreditChange(stats.totalEstimatedNetSavedAICredits)} (estimated)`
   );
   outputChannel.appendLine(
     `Estimate rate      : $${getInputPricePerMillionUsd()} per 1M input tokens`
@@ -156,13 +168,16 @@ function savedPct(stats: SessionStats): number {
     : (stats.totalSavedTokens / stats.totalRawTokens) * 100;
 }
 
-/** Formats a token count compactly (e.g. 1234 -> "1.2k"). */
-function formatTokens(count: number): string {
-  if (count < 1000) {
-    return String(count);
-  }
-  // return `${(count / 100000).toFixed(1)}k`;
-  return `${count}`;
+function formatNetTokens(count: number): string {
+  return count >= 0
+    ? `${count} saved tokens`
+    : `${Math.abs(count)} added tokens`;
+}
+
+function formatAICreditChange(count: number): string {
+  return count >= 0
+    ? `~${formatAICredits(count)} AI credits`
+    : `~${formatAICredits(Math.abs(count))} AI credits added`;
 }
 
 function formatAICredits(count: number): string {

@@ -4,6 +4,13 @@ All notable changes to the "ai-token-optimizer" extension will be documented in 
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [Unreleased]
+
+- Preserve Markdown formatting, avoid guessing comment syntax for unknown inputs,
+  and limit aggressive whitespace folding to explicit plain-text inputs.
+- Track complete textual MCP reply tokens, including summary overhead, and
+  report net token growth instead of hiding negative savings.
+
 ## [0.0.7] - 2026-11-17
 
 - README: "Making Copilot Use the Tools" now includes a ready-to-copy

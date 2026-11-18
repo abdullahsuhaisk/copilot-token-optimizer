@@ -45,10 +45,12 @@ export interface SavingsRecord {
   readonly rawTokens: number;
   /** Tokens in the optimized payload. */
   readonly optimizedTokens: number;
-  /** Tokens saved (raw - optimized, never negative). */
+  /** Net tokens saved (raw - optimized; negative when output is larger). */
   readonly savedTokens: number;
-  /** Saved fraction as a percentage (0-100). */
+  /** Net saved fraction as a percentage; negative when output is larger. */
   readonly savedPct: number;
+  /** Tokens in the complete textual tool reply, including its summary line. */
+  readonly responseTokens?: number;
 }
 
 /**
@@ -61,7 +63,7 @@ export interface SavingsRecord {
 export function measureSavings(rawText: string, optimizedText: string): SavingsRecord {
   const rawTokens = countTokens(rawText);
   const optimizedTokens = countTokens(optimizedText);
-  const savedTokens = Math.max(0, rawTokens - optimizedTokens);
+  const savedTokens = rawTokens - optimizedTokens;
   const savedPct = rawTokens === 0 ? 0 : (savedTokens / rawTokens) * 100;
   return { rawTokens, optimizedTokens, savedTokens, savedPct };
 }
@@ -78,6 +80,16 @@ export interface SessionStats {
   totalSavedTokens: number;
   /** Estimated GitHub AI Credits saved, using the configured input token price. */
   totalEstimatedSavedAICredits: number;
+  /** Calls with complete textual tool-reply measurements. */
+  responseCalls: number;
+  /** Input tokens for calls with complete textual tool-reply measurements. */
+  totalResponseInputTokens: number;
+  /** Returned text tokens, including the tool summary line. */
+  totalResponseTokens: number;
+  /** Net tokens saved after accounting for the complete textual tool reply. */
+  totalNetSavedTokens: number;
+  /** Estimated credits saved after accounting for the complete textual tool reply. */
+  totalEstimatedNetSavedAICredits: number;
   /** Sensitive values masked across all calls, per category. */
   redactions: RedactionCounts;
 }
@@ -90,6 +102,11 @@ export function emptyStats(): SessionStats {
     totalOptimizedTokens: 0,
     totalSavedTokens: 0,
     totalEstimatedSavedAICredits: 0,
+    responseCalls: 0,
+    totalResponseInputTokens: 0,
+    totalResponseTokens: 0,
+    totalNetSavedTokens: 0,
+    totalEstimatedNetSavedAICredits: 0,
     redactions: emptyRedactionCounts()
   };
 }
@@ -124,6 +141,12 @@ export async function readStats(
       totalEstimatedSavedAICredits:
         parsed.totalEstimatedSavedAICredits ??
         estimateSavedAICredits(totalSavedTokens, inputPricePerMillionUsd),
+      responseCalls: parsed.responseCalls ?? 0,
+      totalResponseInputTokens: parsed.totalResponseInputTokens ?? 0,
+      totalResponseTokens: parsed.totalResponseTokens ?? 0,
+      totalNetSavedTokens: parsed.totalNetSavedTokens ?? 0,
+      totalEstimatedNetSavedAICredits:
+        parsed.totalEstimatedNetSavedAICredits ?? 0,
       redactions: { ...emptyRedactionCounts(), ...parsed.redactions }
     };
   } catch {
@@ -150,6 +173,8 @@ export async function recordSavings(
   return withFileLock(filePath, async () => {
     const current = await readStats(filePath, inputPricePerMillionUsd);
     const r = current.redactions;
+    const netSavedTokens =
+      record.responseTokens === undefined ? 0 : record.rawTokens - record.responseTokens;
     const updated: SessionStats = {
       calls: current.calls + 1,
       totalRawTokens: current.totalRawTokens + record.rawTokens,
@@ -158,6 +183,16 @@ export async function recordSavings(
       totalEstimatedSavedAICredits:
         current.totalEstimatedSavedAICredits +
         estimateSavedAICredits(record.savedTokens, inputPricePerMillionUsd),
+      responseCalls: current.responseCalls + (record.responseTokens === undefined ? 0 : 1),
+      totalResponseInputTokens:
+        current.totalResponseInputTokens +
+        (record.responseTokens === undefined ? 0 : record.rawTokens),
+      totalResponseTokens:
+        current.totalResponseTokens + (record.responseTokens ?? 0),
+      totalNetSavedTokens: current.totalNetSavedTokens + netSavedTokens,
+      totalEstimatedNetSavedAICredits:
+        current.totalEstimatedNetSavedAICredits +
+        estimateSavedAICredits(netSavedTokens, inputPricePerMillionUsd),
       redactions: {
         secrets: r.secrets + redactions.secrets,
         ipv4: r.ipv4 + redactions.ipv4,
