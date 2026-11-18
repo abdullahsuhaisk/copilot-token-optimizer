@@ -36,7 +36,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   // Status bar telemetry.
   statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
   statusBarItem.command = SHOW_STATS_COMMAND;
-  statusBarItem.tooltip = 'AI Token Optimizer — click for savings breakdown';
+  statusBarItem.tooltip =
+    'Payload: all calls, excluding reply summaries. Reply: measured complete replies only. ' +
+    'Totals overlap; do not add them. Click for savings breakdown.';
   context.subscriptions.push(statusBarItem);
   await refreshStatusBar();
   statusBarItem.show();
@@ -101,11 +103,16 @@ export function createServerDefinition(
 /** Reads current stats and updates the status bar label. */
 async function refreshStatusBar(): Promise<void> {
   const stats = await readStats(statsFilePath, getInputPricePerMillionUsd());
-  const creditChange = stats.totalEstimatedNetSavedAICredits;
+  const payload = stats.calls > stats.responseCalls
+    ? `Payload ${formatNetTokens(stats.totalSavedTokens)} · ` +
+      `${formatAICreditChange(stats.totalEstimatedSavedAICredits)} · `
+    : '';
+  const reply = stats.responseCalls === 0
+    ? 'Reply not measured'
+    : `Reply ${formatNetTokens(stats.totalNetSavedTokens)} · ` +
+      `${formatAICreditChange(stats.totalEstimatedNetSavedAICredits)}`;
   statusBarItem.text =
-    `$(zap) Reply ${formatNetTokens(stats.totalNetSavedTokens)} · ` +
-    `${formatAICreditChange(creditChange)} · ` +
-    `$(shield) ${totalRedactions(stats.redactions)} redacted`;
+    `$(zap) ${payload}${reply} · $(shield) ${totalRedactions(stats.redactions)} redacted`;
 }
 
 /** Opens the output channel with a detailed savings breakdown. */

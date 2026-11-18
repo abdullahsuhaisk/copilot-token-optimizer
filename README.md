@@ -5,7 +5,7 @@ A VS Code extension + MCP (Model Context Protocol) server that prunes and compre
 ## Features
 
 - **MCP server (stdio)** — exposes three tools: `optimize_context`, `read_file_optimized`, and `get_token_stats`.
-- **Status bar telemetry** — shows the cumulative net token/credit change for complete tool replies, including the summary.
+- **Status bar telemetry** — shows the cumulative net token/credit change for measured complete replies, including the summary. If older calls lack reply measurements, their preserved payload totals are also shown separately.
 - **Estimated AI Credits savings** — estimates credits saved from input tokens using the configured model price (`aiTokenOptimizer.aiCreditInputPricePerMillionUsd`, default `$1/1M tokens`).
 - **Detailed savings report command** — `AI Token Optimizer: Show Token Savings` separates payload savings from net savings across the complete textual MCP reply, including the summary line.
 - **Safe file reads** — `read_file_optimized` rejects requests that escape the workspace root (path traversal).
@@ -61,7 +61,7 @@ npm install
    - Open the project in VS Code.
    - Press `F5` (or select "Run Extension" from the Run and Debug panel).
    - A new VS Code window (Extension Development Host) opens with the extension loaded.
-   - You should see `$(zap) Saved ... tokens` in the bottom-right status bar.
+   - You should see the `$(zap)` savings indicator in the bottom-right status bar.
    - Run **"AI Token Optimizer: Show Token Savings"** from the command palette (`Cmd+Shift+P`) to see the detailed savings report.
 
 3. **Using the MCP server from an agent**
@@ -127,7 +127,7 @@ The model decides which tool to call, so an extension cannot force it. To maximi
 
 - Optimization only happens at the MCP tool-output boundary; VS Code currently has no API to transparently rewrite Copilot's own prompt, so the model's direct input cannot be altered.
 - AI Credits are an estimate based on uncached input-token price, not Copilot billing data. Set `aiTokenOptimizer.aiCreditInputPricePerMillionUsd` to the input price for your model; actual usage can differ due to model choice and cached tokens.
-- Stats are stored in `stats.json` inside the extension's global storage directory, shared by all VS Code windows, and show the cumulative total across projects. Complete-reply measurements start with calls after this update; older records remain in payload-only totals because they did not store the reply summary.
+- Stats are stored in `stats.json` inside the extension's global storage directory, shared by all VS Code windows, and show the cumulative total across projects. Complete-reply measurements start with calls from version 0.0.8; older records remain in payload-only totals because they did not store the reply summary. When older calls exist, the status bar shows all-time **Payload** totals separately from measured **Reply** totals. These totals overlap and must not be added; exact net reply savings cannot be reconstructed for older calls.
 
 ## Use with Claude Code, Claude Desktop, Cursor, and other MCP clients
 
@@ -189,7 +189,7 @@ VS Code eklentisi + MCP (Model Context Protocol) sunucusu olarak çalışan, Cop
 ## Özellikler
 
 - **MCP sunucusu (stdio)** — `optimize_context`, `read_file_optimized` ve `get_token_stats` adında üç araç sunar.
-- **Durum çubuğu telemetrisi** — Özet satırı dâhil tam araç yanıtlarının birikimli net token/kredi değişimini gösterir.
+- **Durum çubuğu telemetrisi** — Özet satırı dâhil ölçülmüş tam araç yanıtlarının birikimli net token/kredi değişimini gösterir. Eski çağrılarda yanıt ölçümü yoksa korunan içerik toplamı da ayrı gösterilir.
 - **Tahmini AI Credits tasarrufu** — Kaydedilen giriş tokenlarını, yapılandırılan model fiyatına göre AI kredisine dönüştürür (`aiTokenOptimizer.aiCreditInputPricePerMillionUsd`, varsayılan `$1/1M token`).
 - **Detaylı rapor komutu** — `AI Token Optimizer: Show Token Savings`, içerik tasarrufunu özet satırı dâhil tam MCP yanıtının net tasarrufundan ayrı gösterir.
 - **Güvenli dosya okuma** — `read_file_optimized` aracı, çalışma alanı kökü dışına çıkan (path traversal) istekleri reddeder.
@@ -245,7 +245,7 @@ npm install
    - VS Code'da projeyi açın.
    - `F5` tuşuna basın (veya "Run and Debug" panelinden "Run Extension" seçin).
    - Açılan yeni VS Code penceresi (Extension Development Host) eklentiyi yüklü olarak başlatır.
-   - Sağ alt köşedeki durum çubuğunda `$(zap) Saved ... tokens` ibaresini görmelisiniz.
+   - Sağ alt köşedeki durum çubuğunda `$(zap)` tasarruf göstergesini görmelisiniz.
    - Komut paletinden (`Cmd+Shift+P`) **"AI Token Optimizer: Show Token Savings"** komutunu çalıştırarak detaylı kazanım raporunu görebilirsiniz.
 
 3. **MCP sunucusunun agent tarafından kullanılması**
@@ -311,7 +311,7 @@ Hangi aracın çağrılacağına model karar verir; eklenti bunu zorlayamaz. Kul
 
 - Optimizasyon yalnızca MCP araç çıktısı seviyesinde uygulanır; VS Code şu an Copilot'un kendi prompt'unu şeffaf biçimde yeniden yazmak için bir API sunmadığından, doğrudan model girişini değiştirmek mümkün değildir.
 - AI Credits değeri, önbelleksiz giriş-token fiyatına dayalı bir tahmindir; Copilot fatura verisi değildir. `aiTokenOptimizer.aiCreditInputPricePerMillionUsd` ayarını kullandığınız modelin giriş-token fiyatına göre düzenleyin; model ve önbellek kullanımı gerçek tutarı değiştirebilir.
-- İstatistikler, eklentinin global storage dizinindeki `stats.json` dosyasında saklanır; tüm VS Code pencereleri bu dosyayı paylaşır ve projeler genelindeki toplamı gösterir. Tam yanıt ölçümleri bu güncellemeden sonraki çağrılarla başlar; eski kayıtlar yanıt özetini içermediğinden içerik ölçümü olarak korunur.
+- İstatistikler, eklentinin global storage dizinindeki `stats.json` dosyasında saklanır; tüm VS Code pencereleri bu dosyayı paylaşır ve projeler genelindeki toplamı gösterir. Tam yanıt ölçümleri 0.0.8 sürümündeki çağrılarla başlar; eski kayıtlar yanıt özetini içermediğinden içerik ölçümü olarak korunur. Eski çağrılar varsa durum çubuğu tüm çağrıların **Payload** toplamını ölçülmüş **Reply** toplamından ayrı gösterir. Bu toplamlar örtüşür ve toplanmamalıdır; eski çağrıların net yanıt tasarrufu sonradan hesaplanamaz.
 
 ## Claude Code, Claude Desktop, Cursor ve diğer MCP istemcilerinde kullanım
 
@@ -373,7 +373,7 @@ Estensione VS Code + server MCP (Model Context Protocol) che riduce e comprime i
 ## Funzionalità
 
 - **Server MCP (stdio)** — espone tre strumenti: `optimize_context`, `read_file_optimized` e `get_token_stats`.
-- **Telemetria nella barra di stato** — mostra la variazione netta cumulativa di token/crediti delle risposte complete, inclusa la riga di riepilogo.
+- **Telemetria nella barra di stato** — mostra la variazione netta cumulativa di token/crediti delle risposte complete misurate, incluso il riepilogo. Se mancano misurazioni delle chiamate precedenti, mostra separatamente anche i totali conservati del contenuto.
 - **Risparmio stimato di AI Credits** — stima i crediti risparmiati dai token di input usando il prezzo del modello configurato (`aiTokenOptimizer.aiCreditInputPricePerMillionUsd`, predefinito `$1/1M token`).
 - **Comando di report dettagliato** — `AI Token Optimizer: Show Token Savings` distingue il risparmio del contenuto dal risparmio netto dell'intera risposta MCP testuale, inclusa la riga di riepilogo.
 - **Lettura sicura dei file** — `read_file_optimized` rifiuta le richieste che escono dalla radice del workspace (path traversal).
@@ -429,7 +429,7 @@ npm install
    - Apri il progetto in VS Code.
    - Premi `F5` (oppure seleziona "Run Extension" dal pannello Run and Debug).
    - Si apre una nuova finestra di VS Code (Extension Development Host) con l'estensione caricata.
-   - Dovresti vedere `$(zap) Saved ... tokens` nella barra di stato in basso a destra.
+   - Dovresti vedere l'indicatore di risparmio `$(zap)` nella barra di stato in basso a destra.
    - Esegui **"AI Token Optimizer: Show Token Savings"** dalla riga di comando (`Cmd+Shift+P`) per vedere il report dettagliato.
 
 3. **Uso del server MCP da parte di un agent**
@@ -495,7 +495,7 @@ npm install
 
 - L'ottimizzazione avviene solo al confine dell'output degli strumenti MCP; VS Code al momento non offre un'API per riscrivere in modo trasparente il prompt di Copilot, quindi l'input diretto del modello non può essere modificato.
 - Gli AI Credits sono una stima basata sul prezzo dei token di input non memorizzati nella cache, non sui dati di fatturazione Copilot. Imposta `aiTokenOptimizer.aiCreditInputPricePerMillionUsd` in base al prezzo del modello; il modello e i token nella cache possono modificare il consumo effettivo.
-- Le statistiche sono salvate in `stats.json` nella directory di global storage dell'estensione, sono condivise da tutte le finestre di VS Code e mostrano il totale cumulativo tra i progetti. Le misurazioni della risposta completa iniziano con le chiamate dopo questo aggiornamento; i dati precedenti restano nei totali del solo contenuto perché non includevano il riepilogo della risposta.
+- Le statistiche sono salvate in `stats.json` nella directory di global storage dell'estensione, sono condivise da tutte le finestre di VS Code e mostrano il totale cumulativo tra i progetti. Le misurazioni della risposta completa iniziano con le chiamate dalla versione 0.0.8; i dati precedenti restano nei totali del solo contenuto perché non includevano il riepilogo della risposta. Se esistono chiamate precedenti, la barra di stato mostra i totali **Payload** complessivi separatamente dai totali **Reply** misurati. Questi totali si sovrappongono e non vanno sommati; il risparmio netto esatto delle risposte precedenti non può essere ricostruito.
 
 ## Utilizzo con Claude Code, Claude Desktop, Cursor e altri client MCP
 

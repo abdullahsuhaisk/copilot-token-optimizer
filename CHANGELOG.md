@@ -4,7 +4,12 @@ All notable changes to the "ai-token-optimizer" extension will be documented in 
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
-## [Unreleased]
+## [0.0.9] - 2026-11-18
+
+- Fix the status bar after upgrading by showing preserved payload totals
+  separately from measured reply totals.
+
+## [0.0.8] - 2026-11-18
 
 - Preserve Markdown formatting, avoid guessing comment syntax for unknown inputs,
   and limit aggressive whitespace folding to explicit plain-text inputs.
