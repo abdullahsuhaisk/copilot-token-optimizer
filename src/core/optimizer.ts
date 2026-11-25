@@ -100,14 +100,38 @@ function commentSyntaxFor(languageId?: string): CommentSyntax {
     case 'perl':
     case 'r':
       return HASH_LIKE;
-    case 'markdown':
-    case 'mdx':
-    case 'plaintext':
-    case 'log':
-      return NO_COMMENTS;
     default:
       return NO_COMMENTS;
   }
+}
+
+const LANGUAGE_BY_EXTENSION: Readonly<Record<string, string>> = {
+  ts: 'typescript',
+  tsx: 'typescriptreact',
+  js: 'javascript',
+  jsx: 'javascriptreact',
+  py: 'python',
+  rb: 'ruby',
+  go: 'go',
+  rs: 'rust',
+  java: 'java',
+  c: 'c',
+  cpp: 'cpp',
+  cs: 'csharp',
+  php: 'php',
+  sh: 'shellscript',
+  md: 'markdown',
+  mdx: 'mdx',
+  txt: 'plaintext',
+  log: 'log',
+  yml: 'yaml',
+  yaml: 'yaml'
+};
+
+/** Maps a file path to a VS Code-style `languageId` based on its extension. */
+export function languageIdFromPath(filePath: string): string | undefined {
+  const extension = filePath.slice(filePath.lastIndexOf('.') + 1).toLowerCase();
+  return LANGUAGE_BY_EXTENSION[extension];
 }
 
 /** Escapes a string for safe use inside a `RegExp`. */
@@ -137,13 +161,17 @@ function stripBlockComments(text: string, syntax: CommentSyntax): string {
 }
 
 /**
- * Removes whole-line comments. A line is dropped only when its first
- * non-whitespace characters are a line-comment marker, so inline trailing
- * comments and markers inside string literals are left untouched.
+ * Whole-line comment check. A line counts only when its first non-whitespace
+ * characters are a line-comment marker, so inline trailing comments and
+ * markers inside string literals are left untouched.
  */
-function stripFullLineComments(line: string, syntax: CommentSyntax): boolean {
+function isFullLineComment(line: string, syntax: CommentSyntax): boolean {
   const trimmed = line.trimStart();
   return syntax.line.some((marker) => trimmed.startsWith(marker));
+}
+
+function trimTrailingWhitespace(line: string): string {
+  return line.replace(/\s+$/, '');
 }
 
 /**
@@ -162,7 +190,7 @@ function deduplicateConsecutiveLines(lines: string[]): string[] {
       count++;
     }
 
-    if (count > 1 && current.trim().length > 0) {
+    if (count > 1 && !isBlank(current)) {
       out.push(`${current}  (x${count})`);
     } else {
       for (let i = 0; i < count; i++) {
@@ -176,93 +204,81 @@ function deduplicateConsecutiveLines(lines: string[]): string[] {
   return out;
 }
 
+function isBlank(line: string): boolean {
+  return line.trim().length === 0;
+}
+
+/** Drops a blank line when the line before it is blank too. */
+function collapseBlankLines(lines: string[]): string[] {
+  return lines.filter((line, index) => !(isBlank(line) && index > 0 && isBlank(lines[index - 1])));
+}
+
+/** Folds runs of spaces/tabs into one space, keeping leading indentation. */
+function foldRepeatedSpaces(line: string): string {
+  const indentation = line.match(/^[ \t]*/)?.[0] ?? '';
+  const content = line.slice(indentation.length).replace(/[ \t]{2,}/g, ' ');
+  return `${indentation}${content}`;
+}
+
+function trimTrailingBlankLines(lines: string[]): string[] {
+  let end = lines.length;
+  while (end > 0 && isBlank(lines[end - 1])) {
+    end--;
+  }
+  return lines.slice(0, end);
+}
+
+function isMarkdown(text: string, languageId?: string): boolean {
+  if (languageId === 'markdown' || languageId === 'mdx') {
+    return true;
+  }
+  return languageId === undefined && looksLikeMarkdown(text);
+}
+
 function looksLikeMarkdown(text: string): boolean {
   return /^[ \t]*(?:#{1,6}[ \t]+\S|`{3,}|~{3,}|[-*+][ \t]+\S|\d+[.)][ \t]+\S|>[ \t]?\S)/m.test(
     text
   );
 }
 
+/** Removes comments and redundant whitespace/lines from a non-Markdown payload. */
+function prune(text: string, options: OptimizeOptions): string {
+  const syntax = commentSyntaxFor(options.languageId);
+
+  let lines = stripBlockComments(text, syntax)
+    .split('\n')
+    .filter((line) => !isFullLineComment(line, syntax))
+    .map(trimTrailingWhitespace);
+  lines = deduplicateConsecutiveLines(lines);
+  lines = collapseBlankLines(lines);
+
+  // Only explicitly plain text may have repeated horizontal spaces folded.
+  if (options.level === 'aggressive' && options.languageId === 'plaintext') {
+    lines = lines.map(foldRepeatedSpaces);
+  }
+
+  return trimTrailingBlankLines(lines).join('\n');
+}
+
 /**
  * Optimizes a text payload by removing comments, collapsing redundant
- * whitespace and folding repeated lines.
+ * whitespace and folding repeated lines, then masking sensitive values.
  *
  * @param text   The raw payload to optimize.
- * @param options Optimization options (level, languageId).
+ * @param options Optimization options (level, languageId, redact).
  * @returns The optimized text plus raw/optimized character counts.
  */
 export function optimize(text: string, options: OptimizeOptions = {}): OptimizeResult {
-  const level = options.level ?? 'conservative';
-  const syntax = commentSyntaxFor(options.languageId);
-  const rawChars = text.length;
-  const isMarkdown =
-    options.languageId === 'markdown' ||
-    options.languageId === 'mdx' ||
-    (options.languageId === undefined && looksLikeMarkdown(text));
-  let optimized = text;
-
-  if (!isMarkdown) {
-    // 1. Strip block comments across the whole payload.
-    const working = stripBlockComments(text, syntax);
-
-    // 2. Process line-by-line: drop full-line comments and normalize whitespace.
-    const rawLines = working.split('\n');
-    const keptLines: string[] = [];
-
-    for (const line of rawLines) {
-      if (stripFullLineComments(line, syntax)) {
-        continue;
-      }
-      // Trim trailing whitespace; preserve leading indentation for readability.
-      keptLines.push(line.replace(/\s+$/, ''));
-    }
-
-    // 3. Deduplicate consecutive identical lines (log-style noise).
-    let processed = deduplicateConsecutiveLines(keptLines);
-
-    // 4. Collapse 2+ consecutive blank lines into a single blank line.
-    const collapsed: string[] = [];
-    let blankRun = 0;
-    for (const line of processed) {
-      if (line.trim().length === 0) {
-        blankRun++;
-        if (blankRun > 1) {
-          continue;
-        }
-      } else {
-        blankRun = 0;
-      }
-      collapsed.push(line);
-    }
-    processed = collapsed;
-
-    // Only explicitly plain text may have repeated horizontal spaces folded.
-    if (level === 'aggressive' && options.languageId === 'plaintext') {
-      processed = processed.map((line) => {
-        const indentation = line.match(/^[ \t]*/)?.[0] ?? '';
-        const content = line.slice(indentation.length).replace(/[ \t]{2,}/g, ' ');
-        return `${indentation}${content}`;
-      });
-    }
-
-    // Remove a single trailing blank line for a tidy result.
-    while (processed.length > 0 && processed[processed.length - 1].trim() === '') {
-      processed.pop();
-    }
-
-    optimized = processed.join('\n');
-  }
+  const pruned = isMarkdown(text, options.languageId) ? text : prune(text, options);
 
   // Redact last so counts reflect only what would actually reach the model.
-  let redactions = emptyRedactionCounts();
-  if (options.redact ?? true) {
-    const redacted = redactSensitive(optimized);
-    optimized = redacted.text;
-    redactions = redacted.counts;
-  }
+  const { text: optimized, counts: redactions } = (options.redact ?? true)
+    ? redactSensitive(pruned)
+    : { text: pruned, counts: emptyRedactionCounts() };
 
   return {
     optimized,
-    rawChars,
+    rawChars: text.length,
     optimizedChars: optimized.length,
     redactions
   };

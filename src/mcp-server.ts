@@ -18,15 +18,19 @@ import { promises as fs } from 'node:fs';
 import { z } from 'zod';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { optimize, type OptimizeResult } from './optimizer.js';
+import { languageIdFromPath, optimize, type OptimizeOptions } from './core/optimizer.js';
 import {
   countTokens,
-  estimateSavedAICredits,
   measureSavings,
+  readStats,
   recordSavings,
-  readStats
-} from './telemetry.js';
-import { totalRedactions, type RedactionCounts } from './redactor.js';
+  type SavingsRecord
+} from './core/telemetry.js';
+import { formatToolStatsReport, formatToolSummary } from './core/format.js';
+import type { RedactionCounts } from './core/redactor.js';
+
+// Resolved relative to the compiled `out/mcp-server.js`.
+const { version: PACKAGE_VERSION } = require('../package.json') as { version: string };
 
 /** Absolute path to the shared stats JSON file, supplied by the extension. */
 const STATS_FILE = process.env.STATS_FILE;
@@ -46,32 +50,31 @@ const levelSchema = z
   );
 
 /**
- * Persists a savings measurement when a stats file is configured. Failures are
- * swallowed so telemetry never breaks a tool call.
+ * Optimizes `rawText`, records the savings and returns the tool reply: a
+ * one-line savings summary followed by the optimized text.
  */
-async function persist(
-  rawText: string,
-  result: OptimizeResult,
-  responseText: string
-): Promise<void> {
-  // Never log the raw payload: it may contain the secrets we just masked.
-  process.stderr.write(`[ai-token-optimizer] OPTIMIZED:\n${result.optimized}\n===\n`);
+async function optimizedReply(rawText: string, options: OptimizeOptions) {
+  const result = optimize(rawText, options);
+  const savings = measureSavings(rawText, result.optimized);
+  const reply =
+    `${formatToolSummary(savings, result.redactions, INPUT_PRICE_PER_MILLION_USD)}\n` +
+    result.optimized;
 
+  // Never log payload text: even optimized output is only as safe as the redactor.
+  log(`optimized ${savings.rawTokens} -> ${savings.optimizedTokens} tokens`);
+  await recordStats({ ...savings, responseTokens: countTokens(reply) }, result.redactions);
+  return textResult(reply);
+}
+
+/** Telemetry is best-effort: failures are logged but never break a tool call. */
+async function recordStats(record: SavingsRecord, redactions: RedactionCounts): Promise<void> {
   if (!STATS_FILE) {
     return;
   }
   try {
-    await recordSavings(
-      STATS_FILE,
-      {
-        ...measureSavings(rawText, result.optimized),
-        responseTokens: countTokens(responseText)
-      },
-      result.redactions,
-      INPUT_PRICE_PER_MILLION_USD
-    );
-  } catch {
-    // Telemetry is best-effort; ignore write errors.
+    await recordSavings(STATS_FILE, record, redactions, INPUT_PRICE_PER_MILLION_USD);
+  } catch (err) {
+    log(`failed to record stats: ${(err as Error).message}`);
   }
 }
 
@@ -97,25 +100,6 @@ function resolveWithinWorkspace(inputPath: string): string {
   return candidate;
 }
 
-/** Builds a one-line, human-readable savings summary for tool output. */
-function savingsLine(rawText: string, result: OptimizeResult): string {
-  const s = measureSavings(rawText, result.optimized);
-  const tokenChange =
-    s.savedTokens >= 0
-      ? `saved ${s.savedTokens}, ${s.savedPct.toFixed(1)}%`
-      : `added ${Math.abs(s.savedTokens)}, ${s.savedPct.toFixed(1)}%`;
-  return (
-    `Payload tokens: ${s.rawTokens} -> ${s.optimizedTokens} (${tokenChange})` +
-    ` | Payload AI credit change (est.): ${formatAICreditChange(estimateSavedAICredits(s.savedTokens, INPUT_PRICE_PER_MILLION_USD))}` +
-    ` ($${INPUT_PRICE_PER_MILLION_USD}/1M input tokens)` +
-    ` | ${redactionLine(result.redactions)}`
-  );
-}
-
-function toolResponse(rawText: string, result: OptimizeResult): string {
-  return `${savingsLine(rawText, result)}\n${result.optimized}`;
-}
-
 function readInputPricePerMillionUsd(): number {
   const raw = process.env.AI_CREDIT_INPUT_PRICE_PER_MILLION_USD;
   const price = raw === undefined ? 1 : Number(raw);
@@ -125,28 +109,22 @@ function readInputPricePerMillionUsd(): number {
   return price;
 }
 
-function formatAICredits(count: number): string {
-  return String(Number(count.toFixed(6)));
+function textResult(text: string) {
+  return { content: [{ type: 'text' as const, text }] };
 }
 
-function formatAICreditChange(count: number): string {
-  return count >= 0
-    ? `~${formatAICredits(count)} saved`
-    : `~${formatAICredits(Math.abs(count))} added`;
+function errorResult(message: string) {
+  return { isError: true, content: [{ type: 'text' as const, text: message }] };
 }
 
-/** Formats redaction counts, e.g. "Redacted: 3 (secrets 1, IPv4 2, IPv6 0, MAC 0, e-mail 0)". */
-function redactionLine(r: RedactionCounts): string {
-  return (
-    `Redacted: ${totalRedactions(r)} (secrets ${r.secrets}, IPv4 ${r.ipv4}, ` +
-    `IPv6 ${r.ipv6}, MAC ${r.mac}, e-mail ${r.email})`
-  );
+function log(message: string): void {
+  process.stderr.write(`[ai-token-optimizer] ${message}\n`);
 }
 
 function createServer(): McpServer {
   const server = new McpServer({
     name: 'ai-token-optimizer',
-    version: '0.0.3'
+    version: PACKAGE_VERSION
   });
 
   // Tool 1: optimize an arbitrary text/code payload. // NOTE:DELETE IT IF ANOTHER LLM DON'T USE OR CHECK
@@ -173,14 +151,7 @@ function createServer(): McpServer {
       },
       annotations: { readOnlyHint: true }
     },
-    async ({ text, languageId, level }) => {
-      const result = optimize(text, { languageId, level });
-      const response = toolResponse(text, result);
-      await persist(text, result, response);
-      return {
-        content: [{ type: 'text', text: response }]
-      };
-    }
+    async ({ text, languageId, level }) => optimizedReply(text, { languageId, level })
   );
 
   // Tool 2: read a workspace file and return an optimized version of it.
@@ -206,24 +177,15 @@ function createServer(): McpServer {
       annotations: { readOnlyHint: true }
     },
     async ({ path, level }) => {
-      let absolute: string;
+      let absolutePath: string;
+      let rawText: string;
       try {
-        absolute = resolveWithinWorkspace(path);
+        absolutePath = resolveWithinWorkspace(path);
+        rawText = await fs.readFile(absolutePath, 'utf8');
       } catch (err) {
-        return {
-          isError: true,
-          content: [{ type: 'text', text: (err as Error).message }]
-        };
+        return errorResult((err as Error).message);
       }
-
-      const raw = await fs.readFile(absolute, 'utf8');
-      const languageId = inferLanguageId(absolute);
-      const result = optimize(raw, { languageId, level });
-      const response = toolResponse(raw, result);
-      await persist(raw, result, response);
-      return {
-        content: [{ type: 'text', text: response }]
-      };
+      return optimizedReply(rawText, { languageId: languageIdFromPath(absolutePath), level });
     }
   );
 
@@ -239,68 +201,14 @@ function createServer(): McpServer {
     },
     async () => {
       if (!STATS_FILE) {
-        return {
-          content: [{ type: 'text', text: 'No stats file configured.' }]
-        };
+        return textResult('No stats file configured.');
       }
       const stats = await readStats(STATS_FILE, INPUT_PRICE_PER_MILLION_USD);
-      const pct =
-        stats.totalRawTokens === 0
-          ? 0
-          : (stats.totalSavedTokens / stats.totalRawTokens) * 100;
-      const summary =
-        `Calls: ${stats.calls}\n` +
-        `Payload raw tokens: ${stats.totalRawTokens}\n` +
-        `Optimized payload tokens: ${stats.totalOptimizedTokens}\n` +
-        `Payload net token change: ${formatNetChange(stats.totalSavedTokens)} (${pct.toFixed(1)}%)\n` +
-        `Payload AI credit change (est.): ${formatAICreditChange(stats.totalEstimatedSavedAICredits)}\n` +
-        `Complete reply measurements: ${stats.responseCalls} calls\n` +
-        `Measured input tokens: ${stats.totalResponseInputTokens}\n` +
-        `Returned text tokens (including summary): ${stats.totalResponseTokens}\n` +
-        `Net tokens after summary: ${formatNetChange(stats.totalNetSavedTokens)}\n` +
-        `Net AI credit change (est.): ${formatAICreditChange(stats.totalEstimatedNetSavedAICredits)}\n` +
-        `Current estimate rate: $${INPUT_PRICE_PER_MILLION_USD} per 1M input tokens\n` +
-        'Estimate only; actual Copilot usage depends on model pricing and cached tokens.\n' +
-        redactionLine(stats.redactions);
-      return { content: [{ type: 'text', text: summary }] };
+      return textResult(formatToolStatsReport(stats, INPUT_PRICE_PER_MILLION_USD));
     }
   );
 
   return server;
-}
-
-function formatNetChange(tokens: number): string {
-  return tokens >= 0
-    ? `${tokens} saved`
-    : `${Math.abs(tokens)} added`;
-}
-
-/** Maps a file extension to a VS Code-style languageId for comment handling. */
-function inferLanguageId(filePath: string): string | undefined {
-  const ext = filePath.slice(filePath.lastIndexOf('.') + 1).toLowerCase();
-  const map: Record<string, string> = {
-    ts: 'typescript',
-    tsx: 'typescriptreact',
-    js: 'javascript',
-    jsx: 'javascriptreact',
-    py: 'python',
-    rb: 'ruby',
-    go: 'go',
-    rs: 'rust',
-    java: 'java',
-    c: 'c',
-    cpp: 'cpp',
-    cs: 'csharp',
-    php: 'php',
-    sh: 'shellscript',
-    md: 'markdown',
-    mdx: 'mdx',
-    txt: 'plaintext',
-    log: 'log',
-    yml: 'yaml',
-    yaml: 'yaml'
-  };
-  return map[ext];
 }
 
 async function main(): Promise<void> {

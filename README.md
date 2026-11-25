@@ -17,11 +17,15 @@ A VS Code extension + MCP (Model Context Protocol) server that prunes and compre
 
 ```
 src/
-  extension.ts    -> VS Code extension entry point (status bar, command, MCP definition)
-  mcp-server.ts   -> Standalone Node process running the MCP server (stdio transport)
-  optimizer.ts    -> Pure, vscode-independent text/code pruning engine
-  redactor.ts     -> Masks secrets, IP/MAC addresses and e-mails
-  telemetry.ts    -> Helpers for reading/writing the shared stats file
+  extension.ts      -> VS Code extension entry point (status bar, command, MCP definition)
+  mcp-server.ts     -> Standalone Node process running the MCP server (stdio transport)
+  core/             -> Pure logic, independent of vscode and MCP
+    optimizer.ts    -> Text/code pruning engine
+    redactor.ts     -> Masks secrets, IP/MAC addresses and e-mails
+    telemetry.ts    -> Token counting and the shared stats file
+    file-lock.ts    -> Cross-process lock for the shared stats file
+    format.ts       -> Status bar / report text formatting
+test/               -> Vitest unit tests
 ```
 
 When the extension activates, it launches `out/mcp-server.js` as a separate `node` process, passing it the `STATS_FILE` and `WORKSPACE_ROOT` environment variables. When the agent calls an MCP tool, the server runs the text through `optimize()` and returns the optimized result; the savings are written to the shared stats file, which the extension watches to refresh the status bar.
@@ -201,11 +205,15 @@ VS Code eklentisi + MCP (Model Context Protocol) sunucusu olarak çalışan, Cop
 
 ```
 src/
-  extension.ts    -> VS Code eklenti giriş noktası (status bar, komut, MCP tanımı)
-  mcp-server.ts   -> Bağımsız Node süreci olarak çalışan MCP sunucusu (stdio transport)
-  optimizer.ts    -> Saf, vscode bağımsız metin/kod budama motoru
-  redactor.ts     -> Secret, IP/MAC adresi ve e-postaları maskeler
-  telemetry.ts    -> Paylaşılan istatistik dosyasını okuma/yazma yardımcıları
+  extension.ts      -> VS Code eklenti giriş noktası (status bar, komut, MCP tanımı)
+  mcp-server.ts     -> Bağımsız Node süreci olarak çalışan MCP sunucusu (stdio transport)
+  core/             -> vscode ve MCP'den bağımsız saf mantık
+    optimizer.ts    -> Metin/kod budama motoru
+    redactor.ts     -> Secret, IP/MAC adresi ve e-postaları maskeler
+    telemetry.ts    -> Token sayımı ve paylaşılan istatistik dosyası
+    file-lock.ts    -> Paylaşılan istatistik dosyası için süreçler arası kilit
+    format.ts       -> Status bar / rapor metni biçimlendirme
+test/               -> Vitest birim testleri
 ```
 
 Eklenti aktive olduğunda `out/mcp-server.js` dosyasını `node` ile ayrı bir süreç olarak başlatır ve ona `STATS_FILE` ile `WORKSPACE_ROOT` ortam değişkenlerini geçer. Agent bir MCP aracını çağırdığında sunucu, metni `optimize()` fonksiyonundan geçirip optimize edilmiş sonucu döndürür; kazanım bilgisi paylaşılan istatistik dosyasına yazılır ve eklenti bu dosyayı izleyerek durum çubuğunu günceller.
@@ -385,11 +393,15 @@ Estensione VS Code + server MCP (Model Context Protocol) che riduce e comprime i
 
 ```
 src/
-  extension.ts    -> Punto di ingresso dell'estensione VS Code (barra di stato, comando, definizione MCP)
-  mcp-server.ts   -> Processo Node autonomo che esegue il server MCP (trasporto stdio)
-  optimizer.ts    -> Motore puro di potatura testo/codice, indipendente da vscode
-  redactor.ts     -> Maschera segreti, indirizzi IP/MAC ed e-mail
-  telemetry.ts    -> Funzioni di lettura/scrittura del file di statistiche condiviso
+  extension.ts      -> Punto di ingresso dell'estensione VS Code (barra di stato, comando, definizione MCP)
+  mcp-server.ts     -> Processo Node autonomo che esegue il server MCP (trasporto stdio)
+  core/             -> Logica pura, indipendente da vscode e MCP
+    optimizer.ts    -> Motore di potatura testo/codice
+    redactor.ts     -> Maschera segreti, indirizzi IP/MAC ed e-mail
+    telemetry.ts    -> Conteggio dei token e file di statistiche condiviso
+    file-lock.ts    -> Lock tra processi per il file di statistiche condiviso
+    format.ts       -> Formattazione del testo per barra di stato e report
+test/               -> Test unitari Vitest
 ```
 
 Quando l'estensione si attiva, avvia `out/mcp-server.js` come processo separato (usando il runtime Node incorporato in VS Code, quindi non serve `node` nel PATH) e gli passa le variabili d'ambiente `STATS_FILE` e `WORKSPACE_ROOT`. Quando l'agent chiama uno strumento MCP, il server elabora il testo con `optimize()` e restituisce il risultato ottimizzato; il risparmio viene scritto nel file di statistiche condiviso, che l'estensione monitora per aggiornare la barra di stato.

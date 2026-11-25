@@ -3,7 +3,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import * as vscode from 'vscode';
-import { emptyStats, recordSavings } from './telemetry';
+import { emptyStats, recordSavings } from '../src/core/telemetry';
 
 vi.mock('vscode', () => {
   class McpStdioServerDefinition {
@@ -24,11 +24,13 @@ vi.mock('vscode', () => {
     },
     workspace: {
       workspaceFolders: [{ uri: { fsPath: '/ws' } }],
-      getConfiguration: () => ({ get: (_key: string, defaultValue: number) => defaultValue }),
+      getConfiguration: vi.fn(() => ({
+        get: (_key: string, defaultValue: number) => defaultValue
+      })),
       fs: { createDirectory: vi.fn().mockResolvedValue(undefined) },
       createFileSystemWatcher: vi.fn(() => ({
-        onDidCreate: vi.fn(),
-        onDidChange: vi.fn(),
+        onDidCreate: vi.fn(disposable),
+        onDidChange: vi.fn(disposable),
         ...disposable()
       }))
     },
@@ -40,7 +42,8 @@ vi.mock('vscode', () => {
         ...disposable()
       })),
       createStatusBarItem: vi.fn(() => ({ text: '', show: vi.fn(), ...disposable() })),
-      onDidChangeWindowState: vi.fn(disposable)
+      onDidChangeWindowState: vi.fn(disposable),
+      showWarningMessage: vi.fn()
     },
     lm: { registerMcpServerDefinitionProvider: vi.fn(disposable) },
     commands: { registerCommand: vi.fn(disposable) },
@@ -48,12 +51,12 @@ vi.mock('vscode', () => {
   };
 });
 
-import { activate, createServerDefinition } from './extension';
+import { activate, createServerDefinition } from '../src/extension';
 
 describe('createServerDefinition', () => {
   const def = createServerDefinition({
     extensionUri: { fsPath: '/ext' }
-  } as never);
+  } as never, '/storage/stats.json', () => 1);
 
   it('uses the current runtime instead of PATH lookup', () => {
     expect(def.command).toBe(process.execPath);
@@ -62,6 +65,7 @@ describe('createServerDefinition', () => {
   it('runs the runtime as plain Node with string env values', () => {
     expect(def.env.ELECTRON_RUN_AS_NODE).toBe('1');
     expect(def.env.WORKSPACE_ROOT).toBe('/ws');
+    expect(def.env.STATS_FILE).toBe('/storage/stats.json');
     expect(def.env.AI_CREDIT_INPUT_PRICE_PER_MILLION_USD).toBe('1');
     expect(typeof def.env.ELECTRON_RUN_AS_NODE).toBe('string');
     expect(typeof def.env.WORKSPACE_ROOT).toBe('string');
@@ -84,6 +88,28 @@ async function startExtension(directory: string) {
 }
 
 describe('status bar savings', () => {
+  it('warns and uses the default price when the configured rate is invalid', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'ai-token-optimizer-'));
+    try {
+      vi.mocked(vscode.workspace.getConfiguration).mockReturnValueOnce({
+        get: () => -1
+      } as never);
+
+      await startExtension(directory);
+
+      expect(vscode.window.showWarningMessage).toHaveBeenCalledOnce();
+      const provider = vi.mocked(vscode.lm.registerMcpServerDefinitionProvider)
+        .mock.calls.at(-1)?.[1];
+      if (!provider) {
+        throw new Error('MCP server definition provider was not registered.');
+      }
+      const [definition] = provider.provideMcpServerDefinitions();
+      expect(definition.env.AI_CREDIT_INPUT_PRICE_PER_MILLION_USD).toBe('1');
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
   it('keeps older payload totals visible before and after the first measured reply', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'ai-token-optimizer-'));
     const filePath = join(directory, 'stats.json');

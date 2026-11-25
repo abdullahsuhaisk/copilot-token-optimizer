@@ -11,7 +11,12 @@
 import { promises as fs } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { get_encoding, type Tiktoken } from 'tiktoken';
-import { emptyRedactionCounts, type RedactionCounts } from './redactor.js';
+import { withFileLock } from './file-lock.js';
+import {
+  addRedactionCounts,
+  emptyRedactionCounts,
+  type RedactionCounts
+} from './redactor.js';
 
 /** Encoding used for token estimation (GPT-4o / o-series family). */
 const ENCODING = 'o200k_base';
@@ -172,9 +177,9 @@ export async function recordSavings(
 ): Promise<SessionStats> {
   return withFileLock(filePath, async () => {
     const current = await readStats(filePath, inputPricePerMillionUsd);
-    const r = current.redactions;
-    const netSavedTokens =
-      record.responseTokens === undefined ? 0 : record.rawTokens - record.responseTokens;
+    const hasReply = record.responseTokens !== undefined;
+    const replyTokens = record.responseTokens ?? 0;
+    const netSavedTokens = hasReply ? record.rawTokens - replyTokens : 0;
     const updated: SessionStats = {
       calls: current.calls + 1,
       totalRawTokens: current.totalRawTokens + record.rawTokens,
@@ -183,23 +188,15 @@ export async function recordSavings(
       totalEstimatedSavedAICredits:
         current.totalEstimatedSavedAICredits +
         estimateSavedAICredits(record.savedTokens, inputPricePerMillionUsd),
-      responseCalls: current.responseCalls + (record.responseTokens === undefined ? 0 : 1),
+      responseCalls: current.responseCalls + (hasReply ? 1 : 0),
       totalResponseInputTokens:
-        current.totalResponseInputTokens +
-        (record.responseTokens === undefined ? 0 : record.rawTokens),
-      totalResponseTokens:
-        current.totalResponseTokens + (record.responseTokens ?? 0),
+        current.totalResponseInputTokens + (hasReply ? record.rawTokens : 0),
+      totalResponseTokens: current.totalResponseTokens + replyTokens,
       totalNetSavedTokens: current.totalNetSavedTokens + netSavedTokens,
       totalEstimatedNetSavedAICredits:
         current.totalEstimatedNetSavedAICredits +
         estimateSavedAICredits(netSavedTokens, inputPricePerMillionUsd),
-      redactions: {
-        secrets: r.secrets + redactions.secrets,
-        ipv4: r.ipv4 + redactions.ipv4,
-        ipv6: r.ipv6 + redactions.ipv6,
-        mac: r.mac + redactions.mac,
-        email: r.email + redactions.email
-      }
+      redactions: addRedactionCounts(current.redactions, redactions)
     };
 
     const tempPath = `${filePath}.${process.pid}.${randomUUID()}.tmp`;
@@ -207,42 +204,4 @@ export async function recordSavings(
     await fs.rename(tempPath, filePath);
     return updated;
   });
-}
-
-const LOCK_RETRY_MS = 20;
-const LOCK_TIMEOUT_MS = 5_000;
-const LOCK_STALE_MS = 10_000;
-
-/**
- * Serializes read-modify-write of the stats file across processes. Every VS
- * Code window runs its own MCP server against the same global file, so without
- * this lock concurrent updates would overwrite each other and lose savings.
- */
-async function withFileLock<T>(filePath: string, fn: () => Promise<T>): Promise<T> {
-  const lockPath = `${filePath}.lock`;
-  const deadline = Date.now() + LOCK_TIMEOUT_MS;
-  for (;;) {
-    try {
-      await fs.mkdir(lockPath);
-      break;
-    } catch (err) {
-      if ((err as NodeJS.ErrnoException).code !== 'EEXIST') {
-        throw err;
-      }
-      const stat = await fs.stat(lockPath).catch(() => undefined);
-      if (stat && Date.now() - stat.mtimeMs > LOCK_STALE_MS) {
-        await fs.rm(lockPath, { recursive: true, force: true });
-        continue;
-      }
-      if (Date.now() > deadline) {
-        throw new Error(`Timed out acquiring stats lock: ${lockPath}`);
-      }
-      await new Promise((resolve) => setTimeout(resolve, LOCK_RETRY_MS));
-    }
-  }
-  try {
-    return await fn();
-  } finally {
-    await fs.rm(lockPath, { recursive: true, force: true });
-  }
 }

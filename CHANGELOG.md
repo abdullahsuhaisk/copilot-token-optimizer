@@ -4,6 +4,14 @@ All notable changes to the "ai-token-optimizer" extension will be documented in 
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [Unreleased]
+
+- Restructure sources into `src/core/` (vscode-independent logic) and `test/`.
+- Fall back to the default price with a warning when
+  `aiTokenOptimizer.aiCreditInputPricePerMillionUsd` is invalid.
+- Report the real package version from the MCP server and log only token
+  counts (not payload text) to its output.
+
 ## [0.0.9] - 2026-11-18
 
 - Fix the status bar after upgrading by showing preserved payload totals

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { optimize } from './optimizer';
-import { measureSavings } from './telemetry';
-import { redactSensitive, PLACEHOLDER } from './redactor';
+import { optimize } from '../src/core/optimizer';
+import { measureSavings } from '../src/core/telemetry';
+import { redactSensitive, PLACEHOLDER } from '../src/core/redactor';
 
 describe('optimize - conservative (default)', () => {
   it('strips full-line C-style comments but keeps code', () => {

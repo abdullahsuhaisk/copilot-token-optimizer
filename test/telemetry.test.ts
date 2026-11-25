@@ -8,7 +8,7 @@ import {
   estimateSavedAICredits,
   readStats,
   recordSavings
-} from './telemetry';
+} from '../src/core/telemetry';
 
 describe('estimateSavedAICredits', () => {
   it('converts saved input tokens using the configured per-million-token price', () => {

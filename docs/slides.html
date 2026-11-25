@@ -79,11 +79,15 @@
 <section class="slide">
   <h2>Proje Yapısı</h2>
 <pre>src/
-  extension.ts    VS Code giriş noktası (status bar, komut, MCP tanımı)
-  mcp-server.ts   Bağımsız MCP sunucusu (stdio transport)
-  optimizer.ts    Saf, vscode'dan bağımsız budama motoru
-  telemetry.ts    Token sayımı ve paylaşılan istatistik dosyası
-  optimizer.test.ts  Vitest birim testleri</pre>
+  extension.ts      VS Code giriş noktası (status bar, komut, MCP tanımı)
+  mcp-server.ts     Bağımsız MCP sunucusu (stdio transport)
+  core/             vscode ve MCP'den bağımsız saf mantık
+    optimizer.ts    Budama motoru
+    redactor.ts     Hassas veri maskeleme
+    telemetry.ts    Token sayımı ve paylaşılan istatistik dosyası
+    file-lock.ts    Süreçler arası dosya kilidi
+    format.ts       Metin biçimlendirme
+test/               Vitest birim testleri</pre>
 </section>
 
 <section class="slide">

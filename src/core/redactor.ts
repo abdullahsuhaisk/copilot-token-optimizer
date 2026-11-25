@@ -27,6 +27,16 @@ export function emptyRedactionCounts(): RedactionCounts {
   return { secrets: 0, ipv4: 0, ipv6: 0, mac: 0, email: 0 };
 }
 
+export function addRedactionCounts(a: RedactionCounts, b: RedactionCounts): RedactionCounts {
+  return {
+    secrets: a.secrets + b.secrets,
+    ipv4: a.ipv4 + b.ipv4,
+    ipv6: a.ipv6 + b.ipv6,
+    mac: a.mac + b.mac,
+    email: a.email + b.email
+  };
+}
+
 export function totalRedactions(counts: RedactionCounts): number {
   return counts.secrets + counts.ipv4 + counts.ipv6 + counts.mac + counts.email;
 }

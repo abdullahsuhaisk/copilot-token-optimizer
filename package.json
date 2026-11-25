@@ -55,7 +55,7 @@
   "scripts": {
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "lint": "eslint src",
+    "lint": "eslint src test",
     "pretest": "npm run compile && npm run lint",
     "test": "vitest run",
     "test:watch": "vitest",
