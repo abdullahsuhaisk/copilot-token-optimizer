@@ -25,10 +25,6 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
   `vscode.lm.registerMcpServerDefinitionProvider`, and `@types/vscode` is pinned
   to `~1.101.0` so the compiler cannot use newer APIs by accident. Earlier
   builds declared `^1.99.0` and could not activate on VS Code 1.99 and 1.100.
-- Fall back to the default price with a warning when
-  `aiTokenOptimizer.aiCreditInputPricePerMillionUsd` is invalid.
-- Report the real package version from the MCP server and log only token
-  counts (not payload text) to its output.
 
 ### Changed
 
@@ -61,6 +57,14 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
   Marketplace through Trusted Publishing when a `v*` tag matching
   `package.json` is pushed. The CI workflow now cancels superseded runs and
   times out after 10 minutes.
+
+## [0.0.10] - 2026-11-25
+
+- Restructure sources into `src/core/` (vscode-independent logic) and `test/`.
+- Fall back to the default price with a warning when
+  `aiTokenOptimizer.aiCreditInputPricePerMillionUsd` is invalid.
+- Report the real package version from the MCP server and log only token
+  counts (not payload text) to its output.
 
 ## [0.0.9] - 2026-11-18
 
