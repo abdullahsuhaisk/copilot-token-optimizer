@@ -6,6 +6,25 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
+### Changed
+
+- The README is redesigned for the Marketplace page: a centered title with
+  badges and a language switch, a short "Why" and "See it work" overview with
+  pictures exported from the visual guide (`docs/images/`), a features table,
+  the architecture, an example status bar and report, and the developer
+  instructions folded away at the end.
+- The README has a copy-paste command (bash and PowerShell) that creates
+  `.github/copilot-instructions.md`, or appends to it, and never overwrites an
+  existing file. Its clone commands use the real repository URL.
+
+### Fixed
+
+- Visual guide: the status bar example is no longer red (the real status bar
+  never changes color) and the architecture labels no longer cross the dashed
+  process borders.
+
+## [0.0.11] - 2026-11-27
+
 ### Fixed
 
 - Comment removal no longer corrupts code. Only comments that occupy whole lines

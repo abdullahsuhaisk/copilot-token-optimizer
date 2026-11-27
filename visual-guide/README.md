@@ -71,6 +71,7 @@ sequenceDiagram
 
 - Every number in the guide was produced by running the real code (v0.0.10, commit `9263736`, plus the CHANGELOG's Unreleased fixes). It is a snapshot: re-measure after changing the optimizer.
 - This folder is listed in `.vscodeignore`, so it is not shipped inside the extension package.
+- The pictures in the root README (`docs/images/`) are screenshots of this page. After you change a diagram or an example number, regenerate them with [`export-images.cjs`](./export-images.cjs); its header explains how (it needs Google Chrome and a temporary `playwright-core`, and adds no dependency to the project).
 
 ---
 
@@ -143,3 +144,4 @@ sequenceDiagram
 
 - Rehberdeki her sayı, gerçek kod çalıştırılarak üretildi (v0.0.10, `9263736` commit'i ve CHANGELOG'daki Unreleased düzeltmeleri). Bir anlık görüntüdür: optimizer değişirse yeniden ölçün.
 - Bu klasör `.vscodeignore` içinde listelidir; eklenti paketinin içine girmez.
+- Kök README'deki görseller (`docs/images/`) bu sayfanın ekran görüntüleridir. Bir diyagramı veya örnek sayıyı değiştirdikten sonra [`export-images.cjs`](./export-images.cjs) ile yeniden üretin; nasıl çalıştırılacağı dosyanın başında yazar (Google Chrome ve geçici bir `playwright-core` gerekir; projeye bağımlılık eklemez).

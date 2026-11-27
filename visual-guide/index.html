@@ -194,7 +194,6 @@
   .formula .card { padding:12px 14px; }
   .formula .card b { display:block; margin-bottom:2px; }
   .statusbar { display:inline-block; background:#1f6feb; color:#fff; font:13px/1 system-ui,sans-serif; padding:7px 12px; border-radius:6px; margin:4px 0; }
-  .statusbar.bad { background:#8c2f39; }
   ol.read { padding-left:1.3rem; }
   ol.read li { margin:.25rem 0; }
 
@@ -357,13 +356,13 @@
           <path class="arrow both" d="M226 143 V193"/>
           <text x="240" y="174" class="sm"><tspan lang="en">tool call ⇅ result</tspan><tspan lang="tr">araç çağrısı ⇅ sonuç</tspan></text>
           <path class="arrow" d="M226 328 V269"/>
-          <text x="240" y="303" class="sm"><tspan lang="en">server definition (command + env)</tspan><tspan lang="tr">sunucu tanımı (komut + env)</tspan></text>
+          <text x="240" y="303" class="sm"><tspan lang="en">server definition (cmd + env)</tspan><tspan lang="tr">sunucu tanımı (komut + env)</tspan></text>
 
           <!-- stdio link between the two worlds -->
           <path class="arrow both" d="M398 231 H518"/>
-          <text x="458" y="212" class="sm mid">stdio</text>
-          <text x="458" y="254" class="sm mid">JSON-RPC</text>
-          <text x="458" y="270" class="xs mid mono">tools/call</text>
+          <text x="478" y="212" class="sm mid">stdio</text>
+          <text x="478" y="254" class="sm mid">JSON-RPC</text>
+          <text x="478" y="270" class="xs mid mono">tools/call</text>
 
           <!-- MCP server process -->
           <rect class="zone" x="520" y="16" width="470" height="450" rx="18"/>
@@ -942,7 +941,7 @@
 
     <h3><span lang="en">What the status bar shows</span><span lang="tr">Durum çubuğunda ne görünür</span></h3>
     <p><span class="statusbar">⚡ Reply 3239 saved tokens · ~0.3239 AI credits · 🛡 3 redacted</span></p>
-    <p><span class="statusbar bad">⚡ Reply 18 added tokens · ~0.0018 AI credits added · 🛡 0 redacted</span></p>
+    <p><span class="statusbar">⚡ Reply 18 added tokens · ~0.0018 AI credits added · 🛡 0 redacted</span></p>
     <p lang="en">Format produced by <code>formatStatusBarText()</code>; the values here are examples. A <em>Payload …</em> part is added only when older calls (before v0.0.8) were recorded without a measured reply. Click the item to open the full report (<em>AI Token Optimizer: Show Token Savings</em>).</p>
     <p lang="tr"><code>formatStatusBarText()</code> tarafından üretilen biçim; buradaki değerler örnektir. <em>Payload …</em> bölümü yalnızca yanıtı ölçülmeden kaydedilmiş eski çağrılar (v0.0.8 öncesi) varsa eklenir. Tam raporu açmak için öğeye tıklayın (<em>AI Token Optimizer: Show Token Savings</em>).</p>
   </section>
