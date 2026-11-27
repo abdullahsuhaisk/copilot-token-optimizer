@@ -12,19 +12,21 @@
 
 import * as vscode from 'vscode';
 import { join } from 'node:path';
-import { readStats, type SessionStats } from './core/telemetry';
-import { formatSavingsReport, formatStatusBarText } from './core/format';
+import { DEFAULT_INPUT_PRICE_PER_MILLION_USD } from './core/credits.js';
+import { formatSavingsReport } from './core/format/savings-report.js';
+import { formatStatusBarText } from './core/format/status-bar.js';
+import { readStats, type CumulativeStats } from './core/stats-store.js';
 
 const PROVIDER_ID = 'aiTokenOptimizer.provider';
 const SHOW_STATS_COMMAND = 'aiTokenOptimizer.showStats';
 const CONFIGURATION_SECTION = 'aiTokenOptimizer';
 const INPUT_PRICE_SETTING = 'aiCreditInputPricePerMillionUsd';
-const DEFAULT_INPUT_PRICE_PER_MILLION_USD = 1;
 
 type InputPriceProvider = () => number;
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   const outputChannel = vscode.window.createOutputChannel('AI Token Optimizer');
+  context.subscriptions.push(outputChannel);
   // Global storage is shared by all windows, so the status bar shows the
   // cumulative total across every workspace.
   const statsFilePath = join(context.globalStorageUri.fsPath, 'stats.json');
@@ -65,7 +67,7 @@ export function createServerDefinition(
 
   return new vscode.McpStdioServerDefinition(
     'AI Token Optimizer',
-    // VS Code'un gömülü Node'u; kullanıcının PATH'ine bağımlı değil.
+    // VS Code's bundled Node, so the server does not depend on the user's PATH.
     process.execPath,
     [serverScript],
     {
@@ -112,10 +114,9 @@ class StatsView implements vscode.Disposable {
 
   dispose(): void {
     this.statusBarItem.dispose();
-    this.outputChannel.dispose();
   }
 
-  private loadStats(): Promise<SessionStats> {
+  private loadStats(): Promise<CumulativeStats> {
     return readStats(this.statsFilePath, this.inputPrice());
   }
 }

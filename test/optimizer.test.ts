@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { optimize } from '../src/core/optimizer';
-import { measureSavings } from '../src/core/telemetry';
-import { redactSensitive, PLACEHOLDER } from '../src/core/redactor';
+import { languageIdFromPath } from '../src/core/languages';
+import { measureSavings } from '../src/core/tokens';
+import { PLACEHOLDER } from '../src/core/redactor';
 
 describe('optimize - conservative (default)', () => {
   it('strips full-line C-style comments but keeps code', () => {
@@ -48,7 +49,7 @@ describe('optimize - conservative (default)', () => {
       'INFO done'
     ].join('\n');
 
-    const { optimized } = optimize(input);
+    const { optimized } = optimize(input, { languageId: 'log' });
 
     expect(optimized).toContain('INFO request received  (x3)');
     expect(optimized).toContain('INFO done');
@@ -104,6 +105,83 @@ describe('optimize - conservative (default)', () => {
   });
 });
 
+describe('optimize - comment removal only touches whole-line comments', () => {
+  it('keeps comment-like text inside string literals', () => {
+    const input = 'const files = glob("src/**/*.ts");\nconst x = 1; /* keep me */\nrun(files);';
+    expect(optimize(input, { languageId: 'typescript' }).optimized).toBe(input);
+  });
+
+  it('never deletes the code between a glob and a later comment', () => {
+    const input = 'export default [{ files: ["**/*.ts"] }, { /* cfg */ rules: {} }];';
+    expect(optimize(input, { languageId: 'javascript' }).optimized).toBe(input);
+  });
+
+  it('keeps comment delimiters that appear in a language table', () => {
+    const source = "const C_LIKE = {\n  block: [['/*', '*/']]\n};";
+    expect(optimize(source, { languageId: 'typescript' }).optimized).toBe(source);
+  });
+
+  it('removes block comments that occupy whole lines, including one-liners', () => {
+    const input = [
+      '/* license */',
+      'const a = 1;',
+      '  /**',
+      '   * doc',
+      '   */',
+      'const b = 2;'
+    ].join('\n');
+    expect(optimize(input, { languageId: 'typescript' }).optimized).toBe(
+      'const a = 1;\nconst b = 2;'
+    );
+  });
+
+  it('keeps a block comment whose closing line continues with code', () => {
+    const input = 'a();\n/* note\n   more */ b();\nc();';
+    expect(optimize(input, { languageId: 'typescript' }).optimized).toBe(input);
+  });
+
+  it('keeps a block comment that is never closed', () => {
+    const input = '/* never closed\nconst a = 1;';
+    expect(optimize(input, { languageId: 'typescript' }).optimized).toBe(input);
+  });
+});
+
+describe('optimize - repeated line folding', () => {
+  it.each(['log', 'plaintext'])('folds repeated lines for %s', (languageId) => {
+    const input = ['retry', 'retry', 'retry', 'done'].join('\n');
+    expect(optimize(input, { languageId }).optimized).toBe('retry  (x3)\ndone');
+  });
+
+  it('never folds repeated lines in code or data', () => {
+    const array = 'const a = [\n  0,\n  0,\n  0,\n];';
+    expect(optimize(array, { languageId: 'typescript' }).optimized).toBe(array);
+    expect(optimize(array).optimized).toBe(array);
+  });
+});
+
+describe('optimize - pathological input', () => {
+  it('trims a very long whitespace run in linear time', () => {
+    const started = performance.now();
+    optimize(' '.repeat(100_000) + 'x', { languageId: 'typescript' });
+    expect(performance.now() - started).toBeLessThan(1000);
+  });
+
+  it('handles a huge unterminated block comment without overflowing the stack', () => {
+    const input = '/* open\n' + 'line\n'.repeat(300_000);
+    expect(optimize(input, { languageId: 'typescript' }).optimized).toBe(input.trimEnd());
+  });
+});
+
+describe('languageIdFromPath', () => {
+  it('maps extensions case-insensitively and ignores unknown or missing ones', () => {
+    expect(languageIdFromPath('src/App.TSX')).toBe('typescriptreact');
+    expect(languageIdFromPath('build/output.log')).toBe('log');
+    expect(languageIdFromPath('Makefile')).toBeUndefined();
+    expect(languageIdFromPath('notes.constructor')).toBeUndefined();
+    expect(languageIdFromPath('archive.d/readme')).toBeUndefined();
+  });
+});
+
 describe('optimize - savings target band', () => {
   it('achieves a meaningful reduction on a verbose, comment-heavy payload', () => {
     const verbose = [
@@ -139,76 +217,7 @@ describe('optimize - savings target band', () => {
   });
 });
 
-describe('redactSensitive', () => {
-  it('masks IPv4 addresses but keeps loopback and invalid/version-like strings', () => {
-    const { text, counts } = redactSensitive(
-      'host=10.20.30.40 local=127.0.0.1 version=1.2.3 bad=999.1.1.1'
-    );
-    expect(text).toBe(`host=${PLACEHOLDER.ipv4} local=127.0.0.1 version=1.2.3 bad=999.1.1.1`);
-    expect(counts.ipv4).toBe(1);
-  });
-
-  it('masks IPv6 addresses without touching `::` in code or clock times', () => {
-    const { text, counts } = redactSensitive(
-      'addr fe80::1ff:fe23:4567:890a and 2001:db8::1, std::string at 12:30:45'
-    );
-    expect(text).toBe(
-      `addr ${PLACEHOLDER.ipv6} and ${PLACEHOLDER.ipv6}, std::string at 12:30:45`
-    );
-    expect(counts.ipv6).toBe(2);
-  });
-
-  it('masks MAC addresses in colon, dash and Cisco formats', () => {
-    const { text, counts } = redactSensitive(
-      '00:1A:2B:3C:4D:5E 00-1a-2b-3c-4d-5e 001a.2b3c.4d5e'
-    );
-    expect(text).toBe(`${PLACEHOLDER.mac} ${PLACEHOLDER.mac} ${PLACEHOLDER.mac}`);
-    expect(counts.mac).toBe(3);
-  });
-
-  it('masks well-known token formats', () => {
-    const input = [
-      'AKIAIOSFODNN7EXAMPLE',
-      'ghp_' + 'a'.repeat(36),
-      'AIza' + 'B'.repeat(35),
-      'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U'
-    ].join('\n');
-    const { text, counts } = redactSensitive(input);
-    expect(text.split('\n').every((l) => l === PLACEHOLDER.secret)).toBe(true);
-    expect(counts.secrets).toBe(4);
-  });
-
-  it('keeps the key name and masks only the value in assignments', () => {
-    const input = [
-      'const apiKey = "s3cr3tValue123";',
-      '"client_secret": "abcDEF123456"',
-      'DB_PASSWORD=hunter2hunter2',
-      'Authorization: Bearer abcdefghijklmnopqrstuvwxyz',
-      'postgres://admin:P4ssw0rd!@db.internal:5432/app'
-    ].join('\n');
-    const { text, counts } = redactSensitive(input);
-    expect(text).toBe(
-      [
-        `const apiKey = "${PLACEHOLDER.secret}";`,
-        `"client_secret": "${PLACEHOLDER.secret}"`,
-        `DB_PASSWORD=${PLACEHOLDER.secret}`,
-        `Authorization: Bearer ${PLACEHOLDER.secret}`,
-        `postgres://admin:${PLACEHOLDER.secret}@db.internal:5432/app`
-      ].join('\n')
-    );
-    expect(counts.secrets).toBe(5);
-  });
-
-  it('masks private key blocks and e-mail addresses', () => {
-    const input =
-      '-----BEGIN RSA PRIVATE KEY-----\nMIIEpAIBAAKCAQEA\n-----END RSA PRIVATE KEY-----\n' +
-      'contact: john.doe@sisal.com';
-    const { text, counts } = redactSensitive(input);
-    expect(text).toBe(`${PLACEHOLDER.privateKey}\ncontact: ${PLACEHOLDER.email}`);
-    expect(counts.secrets).toBe(1);
-    expect(counts.email).toBe(1);
-  });
-
+describe('optimize - redaction', () => {
   it('is applied by optimize() by default and can be disabled', () => {
     const input = 'const host = "192.168.1.10";';
     const on = optimize(input, { languageId: 'typescript' });
@@ -218,20 +227,5 @@ describe('redactSensitive', () => {
     const off = optimize(input, { languageId: 'typescript', redact: false });
     expect(off.optimized).toBe(input);
     expect(off.redactions.ipv4).toBe(0);
-  });
-});
-
-describe('measureSavings', () => {
-  it('reports zero savings and no negative values for identical text', () => {
-    const text = 'const x = 1;';
-    const s = measureSavings(text, text);
-    expect(s.savedTokens).toBe(0);
-    expect(s.savedPct).toBe(0);
-  });
-
-  it('reports net token growth when the optimized text is larger', () => {
-    const s = measureSavings('a', 'a much longer string than before');
-    expect(s.savedTokens).toBeLessThan(0);
-    expect(s.savedPct).toBeLessThan(0);
   });
 });

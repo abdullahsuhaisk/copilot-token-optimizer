@@ -62,16 +62,24 @@ const KNOWN_SECRET_PATTERNS: readonly RegExp[] = [
   /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/g // JWT
 ];
 
-/** Patterns where group 1 is kept (the key name / prefix) and the rest is masked. */
+/**
+ * Patterns where group 1 is kept (the key name / prefix) and the rest is masked.
+ *
+ * Quantifiers on identifier-like runs are bounded on purpose. An unbounded
+ * `[\w.-]*` is retried from every word boundary, so a long dotted or dashed
+ * string (a minified bundle, a path list) would take quadratic time and freeze
+ * the single-threaded MCP server. The bounds are far above any real
+ * identifier or URL scheme.
+ */
 const PREFIXED_SECRET_PATTERNS: readonly RegExp[] = [
   // Authorization: Bearer <token>
   /(\bBearer\s+)[A-Za-z0-9\-._~+/]{16,}=*/gi,
   // scheme://user:password@host
-  /(\b[a-z][a-z0-9+.-]*:\/\/[^\s:/@]+:)[^\s@/]+(?=@)/gi,
+  /(\b[a-z][a-z0-9+.-]{0,31}:\/\/[^\s:/@]+:)[^\s@/]+(?=@)/gi,
   // apiKey = "value", "client_secret": "value", password: 'value'
-  /(\b[\w.-]*(?:api[_-]?key|secret|token|passw(?:or)?d|pwd|access[_-]?key|private[_-]?key|credential)[\w.-]*["']?\s*[:=]\s*["'])[^"'\s]{6,}(?=["'])/gi,
-  // .env style: DB_PASSWORD=value (unquoted)
-  /^(\s*(?:export\s+)?[A-Z0-9_]*(?:KEY|SECRET|TOKEN|PASSWORD|PASSWD|PWD|CREDENTIAL)[A-Z0-9_]*\s*=\s*)[^\s"'#]{6,}/gm
+  /(\b[\w.-]{0,64}(?:api[_-]?key|secret|token|passw(?:or)?d|pwd|access[_-]?key|private[_-]?key|credential)[\w.-]{0,64}["']?\s*[:=]\s*["'])[^"'\s]{6,}(?=["'])/gi,
+  // .env style: DB_PASSWORD=value (unquoted); leading space must not span lines
+  /^([ \t]*(?:export\s+)?[A-Z0-9_]*(?:KEY|SECRET|TOKEN|PASSWORD|PASSWD|PWD|CREDENTIAL)[A-Z0-9_]*\s*=\s*)[^\s"'#]{6,}/gm
 ];
 
 const PRIVATE_KEY_BLOCK =
@@ -80,7 +88,8 @@ const PRIVATE_KEY_BLOCK =
 const MAC_PATTERN =
   /\b(?:[0-9A-Fa-f]{2}([:-]))(?:[0-9A-Fa-f]{2}\1){4}[0-9A-Fa-f]{2}\b|\b[0-9A-Fa-f]{4}\.[0-9A-Fa-f]{4}\.[0-9A-Fa-f]{4}\b/g;
 
-const EMAIL_PATTERN = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g;
+// Bounded like the patterns above: 254 is the longest valid address, 63 the longest label.
+const EMAIL_PATTERN = /\b[A-Za-z0-9._%+-]{1,254}@[A-Za-z0-9.-]{1,253}\.[A-Za-z]{2,63}\b/g;
 
 const IPV4_CANDIDATE = /(?<![\d.])(?:\d{1,3}\.){3}\d{1,3}(?![\d.])/g;
 

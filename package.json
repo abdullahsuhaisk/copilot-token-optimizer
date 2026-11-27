@@ -16,7 +16,7 @@
   "homepage": "https://github.com/abdullahsuhaisk/copilot-token-optimizer#readme",
   "private": true,
   "engines": {
-    "vscode": "^1.99.0",
+    "vscode": "^1.101.0",
     "node": ">=20"
   },
   "categories": [
@@ -53,13 +53,17 @@
     ]
   },
   "scripts": {
+    "clean": "node -e \"require('node:fs').rmSync('out', { recursive: true, force: true })\"",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "lint": "eslint src test",
-    "pretest": "npm run compile && npm run lint",
+    "typecheck": "tsc -p tsconfig.test.json",
+    "lint": "eslint src test --max-warnings 0",
+    "pretest": "npm run compile && npm run typecheck && npm run lint",
     "test": "vitest run",
     "test:watch": "vitest",
-    "vscode:prepublish": "npm run compile"
+    "package": "vsce package",
+    "publish:vs": "npm test && vsce publish",
+    "vscode:prepublish": "npm run clean && npm run compile"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.0",
@@ -68,7 +72,7 @@
   },
   "devDependencies": {
     "@types/node": "^20.19.43",
-    "@types/vscode": "^1.99.0",
+    "@types/vscode": "~1.101.0",
     "@typescript-eslint/eslint-plugin": "^8.18.0",
     "@typescript-eslint/parser": "^8.18.0",
     "eslint": "^9.16.0",

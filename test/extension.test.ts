@@ -3,7 +3,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import * as vscode from 'vscode';
-import { emptyStats, recordSavings } from '../src/core/telemetry';
+import { emptyStats, recordSavings } from '../src/core/stats-store';
 
 vi.mock('vscode', () => {
   class McpStdioServerDefinition {
@@ -77,10 +77,14 @@ async function startExtension(directory: string) {
     extensionUri: vscode.Uri.file('/ext'),
     globalStorageUri: vscode.Uri.file(directory),
     subscriptions: []
-  } as vscode.ExtensionContext);
+  } as unknown as vscode.ExtensionContext);
 
-  const statusBar = vi.mocked(vscode.window.createStatusBarItem).mock.results.at(-1)?.value;
-  const watcher = vi.mocked(vscode.workspace.createFileSystemWatcher).mock.results.at(-1)?.value;
+  const statusBar = vi.mocked(vscode.window.createStatusBarItem).mock.results.at(-1)?.value as
+    | vscode.StatusBarItem
+    | undefined;
+  const watcher = vi.mocked(vscode.workspace.createFileSystemWatcher).mock.results.at(-1)?.value as
+    | vscode.FileSystemWatcher
+    | undefined;
   if (!statusBar || !watcher) {
     throw new Error('Extension did not create its status bar and stats watcher.');
   }
@@ -103,7 +107,15 @@ describe('status bar savings', () => {
       if (!provider) {
         throw new Error('MCP server definition provider was not registered.');
       }
-      const [definition] = provider.provideMcpServerDefinitions();
+      const token = {
+        isCancellationRequested: false,
+        onCancellationRequested: vi.fn()
+      } as unknown as vscode.CancellationToken;
+      const definitions = await provider.provideMcpServerDefinitions(token);
+      const definition = definitions?.[0];
+      if (!(definition instanceof vscode.McpStdioServerDefinition)) {
+        throw new Error('Expected a stdio MCP server definition.');
+      }
       expect(definition.env.AI_CREDIT_INPUT_PRICE_PER_MILLION_USD).toBe('1');
     } finally {
       await rm(directory, { recursive: true, force: true });

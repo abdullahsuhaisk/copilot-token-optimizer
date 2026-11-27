@@ -6,11 +6,61 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
-- Restructure sources into `src/core/` (vscode-independent logic) and `test/`.
+### Fixed
+
+- Comment removal no longer corrupts code. Only comments that occupy whole lines
+  are removed, so a `/*` inside a string (for example the glob `"src/**/*.ts"`)
+  is never mistaken for a comment start.
+- `read_file_optimized` no longer follows a symlink that leads outside the
+  workspace root, and no longer rejects a folder whose name merely starts with
+  two dots (such as `..hidden`).
+- Repeated-line folding (`line  (x3)`) is limited to the `log` and `plaintext`
+  languages, so code and data (arrays, tables, markup) keep their repeated
+  lines. The `optimize_context` description now asks for `languageId: "log"`
+  when the text is a log.
+- Secret, e-mail and URL-password redaction no longer takes quadratic time on
+  long dotted, dashed or blank-line-only inputs, and trailing-whitespace
+  trimming is linear.
+- `engines.vscode` is now `^1.101.0`, the first release with
+  `vscode.lm.registerMcpServerDefinitionProvider`, and `@types/vscode` is pinned
+  to `~1.101.0` so the compiler cannot use newer APIs by accident. Earlier
+  builds declared `^1.99.0` and could not activate on VS Code 1.99 and 1.100.
 - Fall back to the default price with a warning when
   `aiTokenOptimizer.aiCreditInputPricePerMillionUsd` is invalid.
 - Report the real package version from the MCP server and log only token
   counts (not payload text) to its output.
+
+### Changed
+
+- The one-line summary in front of an optimized tool reply is much shorter
+  (about 19 tokens instead of 71) and is left out when nothing changed, so it no
+  longer eats the savings it reports. The per-call credit estimate is still in
+  the status bar and in `get_token_stats`.
+- Restructured the sources into small modules: `core/telemetry.ts` became
+  `tokens.ts`, `credits.ts` and `stats-store.ts`; `core/format.ts` became
+  `core/format/`; `core/optimizer.ts` was split into `optimizer.ts`,
+  `languages.ts` and `line-transforms.ts`; the workspace path guard moved to
+  `core/workspace-path.ts`; `mcp-server.ts` is now a thin entry point over
+  `mcp/`. The extension host no longer loads the tiktoken tokenizer.
+- The savings report is titled "Cumulative Savings" (the totals span all
+  windows) and `SessionStats` is now `CumulativeStats`.
+
+### Added
+
+- Tests for the MCP server (through the SDK's in-memory transport), the
+  workspace path guard, the file lock and the manifest. Tests are now
+  type-checked (`npm run typecheck`).
+- Stricter ESLint (`typescript-eslint` type-checked recommendations, warnings
+  fail) and a GitHub Actions workflow that runs `npm test`.
+- `npm run clean`, which `vscode:prepublish` now runs before compiling, so the
+  compiled output of a deleted or renamed module can never end up in the
+  package. `tsconfig.test.json` and the CI workflow are left out of the package
+  as well.
+- `npm run package` and `npm run publish:vsce` (runs the tests, then
+  `vsce publish`), and a GitHub Actions release workflow that publishes to the
+  Marketplace through Trusted Publishing when a `v*` tag matching
+  `package.json` is pushed. The CI workflow now cancels superseded runs and
+  times out after 10 minutes.
 
 ## [0.0.9] - 2026-11-18
 

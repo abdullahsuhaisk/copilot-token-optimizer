@@ -1,0 +1,1233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:">
+<title>AI Token Optimizer — Visual Guide</title>
+<style>
+  :root {
+    --bg:#f5f7fb; --panel:#ffffff; --panel-2:#eef1f8; --ink:#172033; --ink-2:#3b4660; --muted:#64708a; --line:#d5dbe8;
+    --llm:#7c4dff; --llm-bg:#efeaff;
+    --ext:#1976d2; --ext-bg:#e4f0fc;
+    --srv:#0f9d63; --srv-bg:#dff5ea;
+    --core:#e07b00; --core-bg:#fff0d6;
+    --file:#5f6b85; --file-bg:#e9edf5;
+    --ok:#17a24b; --ok-bg:#e1f6e8;
+    --bad:#d63a3a; --bad-bg:#fde7e7;
+    --warn:#b7791f; --warn-bg:#fff3cf;
+    --code-bg:#101828; --code-ink:#e6edf7;
+    --radius:14px;
+    --shadow:0 1px 2px rgba(16,24,40,.06),0 6px 20px rgba(16,24,40,.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:#0c1222; --panel:#131b30; --panel-2:#1a2440; --ink:#e8edf9; --ink-2:#c3cce2; --muted:#93a0bd; --line:#2a3555;
+      --llm:#a58bff; --llm-bg:#271f4d;
+      --ext:#5aa9ff; --ext-bg:#14304f;
+      --srv:#3ccf8e; --srv-bg:#113a2a;
+      --core:#ffa733; --core-bg:#4a3010;
+      --file:#9aa7c4; --file-bg:#1d2740;
+      --ok:#46d37a; --ok-bg:#143a24;
+      --bad:#ff7a7a; --bad-bg:#4a1c1c;
+      --warn:#f2c660; --warn-bg:#443612;
+      --code-bg:#0a0f1c;
+      --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+
+  /* Language switch: only the active language is rendered. */
+  html[lang="en"] [lang="tr"], html[lang="tr"] [lang="en"] { display:none !important; }
+
+  * { box-sizing:border-box; }
+  html { scroll-behavior:smooth; scroll-padding-top:76px; }
+  body { margin:0; background:var(--bg); color:var(--ink); -webkit-font-smoothing:antialiased;
+    font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; }
+  code,pre,.mono { font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
+  code { font-size:.88em; background:var(--panel-2); border:1px solid var(--line); border-radius:6px; padding:.06em .36em; overflow-wrap:anywhere; }
+  a { color:var(--ext); }
+  .wrap { max-width:1120px; margin:0 auto; padding:0 20px; }
+
+  /* Header */
+  .top { position:sticky; top:0; z-index:20; background:var(--bg); border-bottom:1px solid var(--line); }
+  @supports (background:color-mix(in srgb,red,blue)) {
+    .top { background:color-mix(in srgb,var(--bg) 88%,transparent); backdrop-filter:saturate(1.4) blur(10px); }
+  }
+  .top .wrap { display:flex; align-items:center; gap:16px; min-height:56px; }
+  .brand { font-weight:800; white-space:nowrap; }
+  .brand b { color:var(--core); }
+  .nav { display:flex; gap:2px; overflow-x:auto; flex:1; scrollbar-width:none; }
+  .nav a { white-space:nowrap; text-decoration:none; color:var(--ink-2); font-size:.88rem; padding:6px 10px; border-radius:999px; }
+  .nav a:hover { background:var(--panel-2); }
+  .lang { display:flex; border:1px solid var(--line); border-radius:999px; overflow:hidden; background:var(--panel); flex:none; }
+  .lang button { all:unset; cursor:pointer; padding:6px 14px; font-weight:700; font-size:.85rem; color:var(--muted); }
+  .lang button[aria-pressed="true"] { background:var(--ink); color:var(--bg); }
+  .lang button:focus-visible { outline:2px solid var(--ext); outline-offset:-2px; }
+
+  /* Hero */
+  .hero { padding:44px 0 18px; }
+  .hero h1 { font-size:clamp(1.9rem,4.2vw,2.9rem); line-height:1.12; margin:0 0 12px; }
+  .hero p { max-width:800px; color:var(--ink-2); font-size:1.08rem; margin:0; }
+  .facts { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px; margin-top:26px; }
+  .fact { background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:14px 16px; box-shadow:var(--shadow); }
+  .fact b { display:block; font-size:1.8rem; line-height:1.1; }
+  .fact span { color:var(--muted); font-size:.9rem; }
+
+  /* Sections */
+  section { padding:34px 0 8px; }
+  section h2 { font-size:1.65rem; margin:0 0 6px; display:flex; align-items:center; gap:12px; }
+  section h3 { font-size:1.2rem; margin:28px 0 6px; }
+  .num { flex:none; display:inline-grid; place-items:center; width:34px; height:34px; border-radius:50%; background:var(--ink); color:var(--bg); font-size:1rem; font-weight:700; }
+  .lead { color:var(--ink-2); max-width:860px; margin:.2rem 0 1rem; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); padding:16px 18px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:12px; margin:14px 0; }
+  .grid .card h4 { margin:0 0 6px; display:flex; gap:8px; align-items:center; font-size:1rem; }
+  .grid .card p { margin:0; color:var(--ink-2); font-size:.94rem; }
+  .dot { width:12px; height:12px; border-radius:50%; display:inline-block; flex:none; border:2px solid; }
+
+  /* Colour roles — usable on both SVG shapes and HTML chips */
+  .f-llm  { fill:var(--llm-bg);  stroke:var(--llm);  background:var(--llm-bg);  border-color:var(--llm); }
+  .f-ext  { fill:var(--ext-bg);  stroke:var(--ext);  background:var(--ext-bg);  border-color:var(--ext); }
+  .f-srv  { fill:var(--srv-bg);  stroke:var(--srv);  background:var(--srv-bg);  border-color:var(--srv); }
+  .f-core { fill:var(--core-bg); stroke:var(--core); background:var(--core-bg); border-color:var(--core); }
+  .f-file { fill:var(--file-bg); stroke:var(--file); background:var(--file-bg); border-color:var(--file); }
+  .f-ok   { fill:var(--ok-bg);   stroke:var(--ok);   background:var(--ok-bg);   border-color:var(--ok); }
+  .f-bad  { fill:var(--bad-bg);  stroke:var(--bad);  background:var(--bad-bg);  border-color:var(--bad); }
+  .f-warn { fill:var(--warn-bg); stroke:var(--warn); background:var(--warn-bg); border-color:var(--warn); }
+  .chip { display:inline-block; border:2px solid; border-radius:999px; padding:4px 12px; font-weight:600; font-size:.9rem; }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin:10px 0 0; }
+
+  /* Lanes (idea section) */
+  .lanes { display:grid; gap:10px; margin:14px 0; }
+  .lane { display:flex; flex-wrap:wrap; align-items:center; gap:8px; background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:12px 14px; }
+  .lane .tag { flex:0 0 110px; font-weight:700; color:var(--muted); }
+  .arr { color:var(--muted); font-weight:700; }
+
+  /* Figures */
+  figure { margin:16px 0; }
+  figure .scroll { overflow-x:auto; background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); padding:10px; }
+  figure svg { display:block; width:100%; min-width:820px; height:auto; }
+  figcaption { color:var(--muted); font-size:.9rem; margin-top:8px; }
+
+  /* SVG vocabulary */
+  svg text { fill:var(--ink); font:600 14px system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  svg .lb { font-size:15px; font-weight:700; }
+  svg .sm { font-size:12px; font-weight:500; fill:var(--ink-2); }
+  svg .xs { font-size:11px; font-weight:500; fill:var(--muted); }
+  svg .mono { font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
+  svg .mid { text-anchor:middle; }
+  svg .end { text-anchor:end; }
+  svg .halo { paint-order:stroke; stroke:var(--panel); stroke-width:5px; stroke-linejoin:round; }
+  svg .box { stroke-width:2; }
+  svg .soft { stroke-width:1.6; stroke-dasharray:5 4; fill-opacity:.45; }
+  svg .zone { fill:none; stroke:var(--muted); stroke-width:1.6; stroke-dasharray:7 6; }
+  svg .zt { font-size:13px; fill:var(--muted); font-weight:700; }
+  svg .arrow { fill:none; stroke:var(--ink-2); stroke-width:2; marker-end:url(#arr); }
+  svg .both { marker-start:url(#arr); }
+  svg .dash { stroke-dasharray:6 5; }
+  svg .lifeline { stroke:var(--line); stroke-width:2; stroke-dasharray:4 6; }
+  svg .badge { fill:var(--ink); }
+  svg .badge-t { fill:var(--bg); font-size:12px; font-weight:700; text-anchor:middle; dominant-baseline:central; }
+  svg .mk { fill:var(--ink-2); }
+  svg .dot-e { fill:var(--ext); stroke:var(--panel); stroke-width:1.5; }
+  svg .dot-s { fill:var(--srv); stroke:var(--panel); stroke-width:1.5; }
+  svg .hatch-fill { fill:var(--ok); opacity:.35; }
+  svg .f-hatch { fill:url(#hatch); stroke:var(--ok); stroke-width:2; stroke-dasharray:5 4; }
+  svg .step { cursor:default; }
+  svg .step.hl .arrow { stroke:var(--core); stroke-width:3.4; }
+  svg .step.hl .badge { fill:var(--core); }
+  svg .step.hl text.halo { fill:var(--ink); }
+
+  /* Step list */
+  .steps { list-style:none; margin:14px 0 0; padding:0; display:grid; grid-template-columns:repeat(auto-fit,minmax(360px,1fr)); gap:10px; }
+  .steps li { display:flex; gap:12px; background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:10px 12px; transition:background .15s,border-color .15s; }
+  .steps li.hl, .steps li:focus-visible { border-color:var(--core); background:var(--core-bg); outline:none; }
+  .steps .n { flex:none; display:grid; place-items:center; width:26px; height:26px; border-radius:50%; background:var(--ink); color:var(--bg); font-weight:700; font-size:.85rem; }
+  .steps li.hl .n { background:var(--core); color:#fff; }
+  .steps p { margin:0; font-size:.95rem; }
+  .steps .who { display:block; color:var(--muted); font-size:.82rem; margin-top:2px; }
+
+  /* Optimizer stages */
+  .pipe { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:12px; margin:14px 0; }
+  .stage { background:var(--panel); border:1px solid var(--line); border-left:5px solid var(--core); border-radius:12px; padding:12px 14px; }
+  .stage.skip { border-left-color:var(--file); }
+  .stage.mask { border-left-color:var(--bad); }
+  .stage h4 { margin:0 0 4px; font-size:.98rem; display:flex; gap:8px; align-items:baseline; }
+  .stage h4 i { font-style:normal; color:var(--muted); font-size:.8rem; font-weight:700; }
+  .stage p { margin:0 0 6px; color:var(--ink-2); font-size:.9rem; }
+
+  /* Code panels (always dark for contrast) */
+  .diff { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin:12px 0; }
+  @media (max-width:880px) { .diff { grid-template-columns:1fr; } }
+  .code { background:var(--code-bg); color:var(--code-ink); border-radius:12px; overflow:hidden; border:1px solid var(--line); min-width:0; }
+  .code .bar { display:flex; justify-content:space-between; gap:8px; padding:8px 12px; background:rgba(255,255,255,.07); font-size:.82rem; color:#b9c4dd; }
+  .code .body { padding:8px 0; overflow-x:auto; font:12.5px/1.6 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
+  .ln { white-space:pre; padding-right:14px; min-width:max-content; }
+  .ln::before { content:attr(data-n); display:inline-block; width:2.4em; margin-right:12px; text-align:right; color:#6f7c99; }
+  .ln.rm { background:rgba(255,90,90,.17); color:#ffb4b4; text-decoration:line-through; text-decoration-color:rgba(255,130,130,.55); }
+  .ln.ch { background:rgba(255,200,80,.12); }
+  .ln.fold { background:rgba(90,170,255,.17); }
+  .ln.keep.blank { background:rgba(255,255,255,.04); }
+  .code mark { background:rgba(255,196,0,.30); color:#ffe49a; border-radius:4px; padding:0 3px; }
+  .code .x { background:rgba(90,170,255,.30); color:#bfe0ff; border-radius:4px; padding:0 3px; }
+  .key { display:flex; flex-wrap:wrap; gap:8px; margin:8px 0; font-size:.85rem; }
+  .key span { padding:2px 10px; border-radius:999px; border:1px solid var(--line); background:var(--panel); }
+  .key .k-rm { border-color:var(--bad); }
+  .key .k-ch { border-color:var(--warn); }
+  .key .k-fold { border-color:var(--ext); }
+
+  /* Notes and tables */
+  .note { border-left:5px solid var(--warn); background:var(--warn-bg); padding:10px 14px; border-radius:10px; margin:14px 0; }
+  .note.ok { border-color:var(--ok); background:var(--ok-bg); }
+  .note strong { display:block; margin-bottom:2px; }
+  .note ul { margin:.3rem 0 0; padding-left:1.2rem; }
+  .note li { margin:.2rem 0; }
+  .tablewrap { overflow-x:auto; border:1px solid var(--line); border-radius:12px; background:var(--panel); box-shadow:var(--shadow); margin:12px 0; }
+  table { border-collapse:collapse; width:100%; font-size:.92rem; }
+  th,td { padding:9px 12px; border-bottom:1px solid var(--line); text-align:left; vertical-align:top; }
+  th { background:var(--panel-2); font-size:.8rem; color:var(--ink-2); white-space:nowrap; }
+  tr:last-child td { border-bottom:0; }
+  td.r, th.r { text-align:right; font-variant-numeric:tabular-nums; }
+  .neg { color:var(--bad); font-weight:700; }
+  .pos { color:var(--ok); font-weight:700; }
+  .formula { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:10px; margin:12px 0; }
+  .formula .card { padding:12px 14px; }
+  .formula .card b { display:block; margin-bottom:2px; }
+  .statusbar { display:inline-block; background:#1f6feb; color:#fff; font:13px/1 system-ui,sans-serif; padding:7px 12px; border-radius:6px; margin:4px 0; }
+  .statusbar.bad { background:#8c2f39; }
+  ol.read { padding-left:1.3rem; }
+  ol.read li { margin:.25rem 0; }
+
+  footer { margin-top:44px; padding:24px 0 64px; border-top:1px solid var(--line); color:var(--muted); font-size:.9rem; }
+
+  @media (max-width:720px) { .nav { display:none; } .steps { grid-template-columns:1fr; } }
+  @media print {
+    .top { position:static; } .nav, .lang { display:none; } figure svg { min-width:0; }
+    body { background:#fff; } section { break-inside:avoid-page; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Shared SVG definitions (arrowhead, hatch pattern) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" class="mk"/>
+    </marker>
+    <pattern id="hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <rect width="4" height="8" class="hatch-fill"/>
+    </pattern>
+  </defs>
+</svg>
+
+<header class="top">
+  <div class="wrap">
+    <div class="brand">AI Token <b>Optimizer</b></div>
+    <nav class="nav" aria-label="Sections">
+      <a href="#idea"><span lang="en">Idea</span><span lang="tr">Fikir</span></a>
+      <a href="#architecture"><span lang="en">Architecture</span><span lang="tr">Mimari</span></a>
+      <a href="#flow"><span lang="en">One tool call</span><span lang="tr">Bir araç çağrısı</span></a>
+      <a href="#optimizer"><span lang="en">Optimizer</span><span lang="tr">Optimizer</span></a>
+      <a href="#redaction"><span lang="en">Redaction</span><span lang="tr">Maskeleme</span></a>
+      <a href="#measuring"><span lang="en">Measuring</span><span lang="tr">Ölçüm</span></a>
+      <a href="#map"><span lang="en">Code map</span><span lang="tr">Kod haritası</span></a>
+      <a href="#cheatsheet"><span lang="en">Cheat sheet</span><span lang="tr">Özet kart</span></a>
+    </nav>
+    <div class="lang" role="group" aria-label="Language / Dil">
+      <button type="button" data-set-lang="tr" aria-pressed="false">TR</button>
+      <button type="button" data-set-lang="en" aria-pressed="true">EN</button>
+    </div>
+  </div>
+</header>
+
+<main>
+<div class="wrap">
+
+  <div class="hero">
+    <h1><span lang="en">AI Token Optimizer — Visual Guide</span><span lang="tr">AI Token Optimizer — Görsel Rehber</span></h1>
+    <p lang="en">A VS Code extension plus an MCP server that shrinks what Copilot's agent reads (files, logs, tool output) before it reaches the model, and shows the savings live. This page explains how every part fits together.</p>
+    <p lang="tr">Copilot agent'ının okuduğu içeriği (dosyalar, loglar, araç çıktıları) modele ulaşmadan önce küçülten ve kazancı canlı gösteren bir VS Code eklentisi ile MCP sunucusu. Bu sayfa, tüm parçaların birbirine nasıl bağlandığını anlatır.</p>
+    <div class="facts">
+      <div class="fact"><b>22</b><span lang="en">source files · 1,521 lines</span><span lang="tr">kaynak dosya · 1.521 satır</span></div>
+      <div class="fact"><b>3</b><span lang="en">MCP tools exposed</span><span lang="tr">MCP aracı sunulur</span></div>
+      <div class="fact"><b>82</b><span lang="en">unit tests, all passing</span><span lang="tr">birim test, hepsi geçiyor</span></div>
+      <div class="fact"><b>23.9%</b><span lang="en">fewer tokens (net) reading this repo's own source files</span><span lang="tr">bu reponun kendi kaynak dosyalarını okurken net token azalması</span></div>
+    </div>
+  </div>
+
+  <!-- 1 · IDEA -->
+  <section id="idea">
+    <h2><span class="num">1</span><span lang="en">The idea in 60 seconds</span><span lang="tr">Fikir: 60 saniyede</span></h2>
+    <p class="lead" lang="en">Every character Copilot reads costs tokens. Comments, blank lines, repeated log lines and even secrets are paid for and sent to the model. This project sits between the agent and your files:</p>
+    <p class="lead" lang="tr">Copilot'ın okuduğu her karakter token harcar. Yorumlar, boş satırlar, tekrar eden log satırları ve hatta gizli anahtarlar da ücretlendirilir ve modele gönderilir. Bu proje, agent ile dosyalarınız arasına girer:</p>
+
+    <div class="lanes">
+      <div class="lane">
+        <span class="tag"><span lang="en">Without it</span><span lang="tr">Araçsız</span></span>
+        <span class="chip f-file"><span lang="en">Your file</span><span lang="tr">Dosyanız</span></span><span class="arr">→</span>
+        <span class="chip f-ext"><span lang="en">built-in read tool</span><span lang="tr">yerleşik okuma aracı</span></span><span class="arr">→</span>
+        <span class="chip f-llm"><span lang="en">LLM gets everything · 1445 tokens</span><span lang="tr">LLM her şeyi alır · 1445 token</span></span>
+      </div>
+      <div class="lane">
+        <span class="tag"><span lang="en">With it</span><span lang="tr">Araçla</span></span>
+        <span class="chip f-file"><span lang="en">Your file</span><span lang="tr">Dosyanız</span></span><span class="arr">→</span>
+        <span class="chip f-srv">read_file_optimized (MCP)</span><span class="arr">→</span>
+        <span class="chip f-core">✂ <span lang="en">prune</span><span lang="tr">buda</span></span><span class="arr">→</span>
+        <span class="chip f-bad">🛡 <span lang="en">mask secrets</span><span lang="tr">sırları maskele</span></span><span class="arr">→</span>
+        <span class="chip f-llm"><span lang="en">LLM gets 985 tokens</span><span lang="tr">LLM 985 token alır</span></span>
+      </div>
+    </div>
+
+    <figure>
+      <div class="scroll">
+        <svg viewBox="0 0 1000 240" role="img"
+             data-label-en="Bar chart: reading a 1445-token file returns a 985-token reply, a net saving of 460 tokens"
+             data-label-tr="Çubuk grafik: 1445 tokenlık dosya okununca 985 tokenlık yanıt döner; net kazanç 460 token">
+          <defs><clipPath id="clipBar"><rect x="230" y="130" width="730" height="40" rx="8"/></clipPath></defs>
+
+          <text x="20" y="76" class="lb"><tspan lang="en">Raw file</tspan><tspan lang="tr">Ham dosya</tspan></text>
+          <text x="20" y="94" class="xs mono">src/core/stats-store.ts</text>
+          <rect class="f-file box" x="230" y="50" width="730" height="40" rx="8"/>
+          <text x="595" y="76" class="mid">1445 tokens</text>
+
+          <text x="20" y="152" class="lb"><tspan lang="en">What the model receives</tspan><tspan lang="tr">Modelin aldığı</tspan></text>
+          <text x="20" y="170" class="xs"><tspan lang="en">summary line + optimized body</tspan><tspan lang="tr">özet satırı + optimize gövde</tspan></text>
+          <g clip-path="url(#clipBar)">
+            <rect class="f-srv" x="230" y="130" width="488" height="40" style="stroke:none"/>
+            <rect class="f-warn" x="718" y="130" width="9.6" height="40" style="stroke:none"/>
+            <rect class="f-hatch" x="727.6" y="130" width="232.4" height="40"/>
+          </g>
+          <rect x="230" y="130" width="730" height="40" rx="8" class="f-file box" style="fill:none"/>
+          <text x="474" y="156" class="mid"><tspan lang="en">optimized body · 966</tspan><tspan lang="tr">optimize gövde · 966</tspan></text>
+          <text x="723" y="120" class="sm mid"><tspan lang="en">summary +19</tspan><tspan lang="tr">özet +19</tspan></text>
+          <text x="844" y="156" class="mid halo"><tspan lang="en">saved 460 tokens (31.8%)</tspan><tspan lang="tr">460 token kazanç (%31,8)</tspan></text>
+
+          <rect class="f-srv box" x="230" y="196" width="14" height="14" rx="3"/>
+          <text x="252" y="208" class="sm"><tspan lang="en">optimized body</tspan><tspan lang="tr">optimize edilmiş gövde</tspan></text>
+          <rect class="f-warn box" x="440" y="196" width="14" height="14" rx="3"/>
+          <text x="462" y="208" class="sm"><tspan lang="en">summary line (the tool's own overhead)</tspan><tspan lang="tr">özet satırı (aracın kendi maliyeti)</tspan></text>
+          <rect class="f-hatch" x="740" y="196" width="14" height="14" rx="3"/>
+          <text x="762" y="208" class="sm"><tspan lang="en">net saved</tspan><tspan lang="tr">net kazanç</tspan></text>
+        </svg>
+      </div>
+      <figcaption lang="en">Real numbers from reading <code>src/core/stats-store.ts</code> through the tool (tiktoken <code>o200k_base</code>). The summary line the tool prepends is counted too.</figcaption>
+      <figcaption lang="tr">Aracın <code>src/core/stats-store.ts</code> dosyasını okurken ölçülen gerçek sayılar (tiktoken <code>o200k_base</code>). Aracın başa eklediği özet satırı da hesaba katılmıştır.</figcaption>
+    </figure>
+
+    <div class="note ok">
+      <strong><span lang="en">The tool only works when the model chooses to call it</span><span lang="tr">Araç yalnızca model onu çağırmayı seçtiğinde çalışır</span></strong>
+      <span lang="en">That is why the repo ships <code>.github/copilot-instructions.md</code> and why each tool description says “use me instead of the built-in file reader”. VS Code has no API to rewrite Copilot's own prompt, so optimization happens only at the tool-output boundary.</span>
+      <span lang="tr">Bu yüzden repoda <code>.github/copilot-instructions.md</code> bulunur ve her araç açıklaması “yerleşik dosya okuyucu yerine beni kullan” der. VS Code, Copilot'ın kendi prompt'unu yeniden yazmak için bir API sunmaz; bu nedenle optimizasyon yalnızca araç çıktısı sınırında gerçekleşir.</span>
+    </div>
+  </section>
+
+  <!-- 2 · ARCHITECTURE -->
+  <section id="architecture">
+    <h2><span class="num">2</span><span lang="en">Architecture: two processes, one shared file</span><span lang="tr">Mimari: iki süreç, bir ortak dosya</span></h2>
+    <p class="lead" lang="en">The extension and the MCP server are different programs. They never call each other directly: VS Code starts the server, Copilot talks to it through VS Code, and the only thing both sides share is a small JSON file.</p>
+    <p class="lead" lang="tr">Eklenti ve MCP sunucusu farklı programlardır. Birbirlerini doğrudan çağırmazlar: sunucuyu VS Code başlatır, Copilot ona VS Code üzerinden konuşur ve iki tarafın tek ortak noktası küçük bir JSON dosyasıdır.</p>
+
+    <figure>
+      <div class="scroll">
+        <svg viewBox="0 0 1000 650" role="img"
+             data-label-en="Architecture diagram: Copilot talks to VS Code, which talks over stdio to the MCP server process; the server writes stats.json and the extension watches it"
+             data-label-tr="Mimari diyagram: Copilot VS Code ile, VS Code stdio üzerinden MCP sunucu süreci ile konuşur; sunucu stats.json'u yazar, eklenti izler">
+
+          <!-- VS Code window -->
+          <rect class="zone" x="16" y="16" width="420" height="520" rx="18"/>
+          <text x="36" y="44" class="zt"><tspan lang="en">VS Code window</tspan><tspan lang="tr">VS Code penceresi</tspan></text>
+
+          <rect class="f-llm box" x="56" y="70" width="340" height="70" rx="12"/>
+          <text x="226" y="100" class="mid">Copilot Agent (LLM)</text>
+          <text x="226" y="122" class="sm mid"><tspan lang="en">decides which tool to call</tspan><tspan lang="tr">hangi aracı çağıracağına karar verir</tspan></text>
+
+          <rect class="f-ext box" x="56" y="196" width="340" height="70" rx="12"/>
+          <text x="226" y="226" class="mid"><tspan lang="en">VS Code core · MCP client</tspan><tspan lang="tr">VS Code çekirdeği · MCP istemcisi</tspan></text>
+          <text x="226" y="248" class="sm mid"><tspan lang="en">starts the server, relays calls</tspan><tspan lang="tr">sunucuyu başlatır, çağrıları iletir</tspan></text>
+
+          <rect class="f-ext box" x="56" y="330" width="340" height="186" rx="12"/>
+          <text x="76" y="360">Extension Host · <tspan class="mono">extension.ts</tspan></text>
+          <text x="76" y="392" class="sm">• <tspan lang="en">registers the MCP server</tspan><tspan lang="tr">MCP sunucusunu kaydeder</tspan></text>
+          <text x="76" y="418" class="sm">• <tspan lang="en">⚡ status bar item</tspan><tspan lang="tr">⚡ durum çubuğu öğesi</tspan></text>
+          <text x="76" y="444" class="sm">• <tspan lang="en">command “Show Token Savings”</tspan><tspan lang="tr">“Show Token Savings” komutu</tspan></text>
+          <text x="76" y="470" class="sm">• <tspan lang="en">watches stats.json (also on window focus)</tspan><tspan lang="tr">stats.json'u izler (pencere odaklanınca da)</tspan></text>
+          <text x="76" y="496" class="sm">• <tspan lang="en">no tokenizer: it only reads the numbers</tspan><tspan lang="tr">tokenizer yok: yalnızca sayıları okur</tspan></text>
+
+          <path class="arrow both" d="M226 143 V193"/>
+          <text x="240" y="174" class="sm"><tspan lang="en">tool call ⇅ result</tspan><tspan lang="tr">araç çağrısı ⇅ sonuç</tspan></text>
+          <path class="arrow" d="M226 328 V269"/>
+          <text x="240" y="303" class="sm"><tspan lang="en">server definition (command + env)</tspan><tspan lang="tr">sunucu tanımı (komut + env)</tspan></text>
+
+          <!-- stdio link between the two worlds -->
+          <path class="arrow both" d="M398 231 H518"/>
+          <text x="458" y="212" class="sm mid">stdio</text>
+          <text x="458" y="254" class="sm mid">JSON-RPC</text>
+          <text x="458" y="270" class="xs mid mono">tools/call</text>
+
+          <!-- MCP server process -->
+          <rect class="zone" x="520" y="16" width="470" height="450" rx="18"/>
+          <text x="540" y="44" class="zt"><tspan lang="en">MCP server process</tspan><tspan lang="tr">MCP sunucu süreci</tspan></text>
+          <text x="540" y="62" class="xs mono">mcp-server.ts → out/mcp-server.js</text>
+
+          <rect class="f-srv box" x="540" y="84" width="138" height="44" rx="10"/>
+          <text x="609" y="111" class="xs mid mono" style="font-size:11.5px;fill:var(--ink)">optimize_context</text>
+          <rect class="f-srv box" x="686" y="84" width="138" height="44" rx="10"/>
+          <text x="755" y="111" class="xs mid mono" style="font-size:11.5px;fill:var(--ink)">read_file_optimized</text>
+          <rect class="f-srv box" x="832" y="84" width="138" height="44" rx="10"/>
+          <text x="901" y="111" class="xs mid mono" style="font-size:11.5px;fill:var(--ink)">get_token_stats</text>
+          <path class="arrow" d="M755 130 V150"/>
+
+          <rect class="f-core soft" x="540" y="152" width="430" height="280" rx="14"/>
+          <text x="556" y="177"><tspan class="mono">core/</tspan> <tspan class="sm" lang="en">pure logic, no vscode import</tspan><tspan class="sm" lang="tr">saf mantık, vscode bağımlılığı yok</tspan></text>
+
+          <rect class="f-core box" x="556" y="192" width="196" height="62" rx="10"/>
+          <text x="568" y="217" class="mono" style="font-size:13px">optimizer.ts</text>
+          <text x="568" y="238" class="sm"><tspan lang="en">prunes comments &amp; blanks</tspan><tspan lang="tr">yorum ve boşlukları budar</tspan></text>
+          <rect class="f-core box" x="764" y="192" width="196" height="62" rx="10"/>
+          <text x="776" y="217" class="mono" style="font-size:13px">redactor.ts</text>
+          <text x="776" y="238" class="sm"><tspan lang="en">masks secrets, IPs, e-mails</tspan><tspan lang="tr">sır, IP, e-posta maskeler</tspan></text>
+
+          <rect class="f-core box" x="556" y="270" width="196" height="62" rx="10"/>
+          <text x="568" y="295" class="mono" style="font-size:13px">stats-store.ts</text>
+          <text x="568" y="316" class="sm"><tspan lang="en">cumulative stats file</tspan><tspan lang="tr">birikimli istatistik dosyası</tspan></text>
+          <rect class="f-core box" x="764" y="270" width="196" height="62" rx="10"/>
+          <text x="776" y="295" class="mono" style="font-size:13px">tokens.ts</text>
+          <text x="776" y="316" class="sm"><tspan lang="en">counts tokens (tiktoken)</tspan><tspan lang="tr">token sayar (tiktoken)</tspan></text>
+
+          <rect class="f-core box" x="556" y="348" width="196" height="62" rx="10"/>
+          <text x="568" y="373" class="mono" style="font-size:13px">format/</text>
+          <text x="568" y="394" class="sm"><tspan lang="en">status bar &amp; reply text</tspan><tspan lang="tr">durum çubuğu, yanıt metni</tspan></text>
+          <rect class="f-core box" x="764" y="348" width="196" height="62" rx="10"/>
+          <text x="776" y="373" class="mono" style="font-size:13px">workspace-path.ts</text>
+          <text x="776" y="394" class="sm"><tspan lang="en">keeps paths in the workspace</tspan><tspan lang="tr">yolları çalışma alanında tutar</tspan></text>
+          <text x="556" y="425" class="xs mono">+ languages · line-transforms · file-lock · credits</text>
+
+          <text x="540" y="454" class="xs mono">env: STATS_FILE · WORKSPACE_ROOT · AI_CREDIT_INPUT_PRICE…</text>
+
+          <!-- shared file -->
+          <rect class="f-file box" x="330" y="556" width="340" height="76" rx="12"/>
+          <text x="500" y="586" class="mid mono">stats.json</text>
+          <text x="500" y="606" class="sm mid"><tspan lang="en">global storage · shared by all windows</tspan><tspan lang="tr">global storage · tüm pencerelerle ortak</tspan></text>
+          <text x="500" y="623" class="xs mid mono">+ stats.json.lock/</text>
+
+          <path class="arrow" d="M760 466 V510 H600 V554"/>
+          <text x="690" y="503" class="sm mid halo"><tspan lang="en">writes: lock + atomic rename</tspan><tspan lang="tr">yazar: kilit + atomik rename</tspan></text>
+          <path class="arrow" d="M380 554 V518"/>
+          <text x="370" y="550" class="sm end halo"><tspan lang="en">watches → refreshes status bar</tspan><tspan lang="tr">izler → durum çubuğunu yeniler</tspan></text>
+        </svg>
+      </div>
+      <figcaption lang="en">Solid arrows are calls or data flow. Dashed outlines are process / window boundaries.</figcaption>
+      <figcaption lang="tr">Düz oklar çağrı veya veri akışıdır. Kesikli çerçeveler süreç / pencere sınırlarıdır.</figcaption>
+    </figure>
+
+    <div class="chips" aria-label="Legend">
+      <span class="chip f-llm">Copilot / LLM</span>
+      <span class="chip f-ext"><span lang="en">VS Code / extension</span><span lang="tr">VS Code / eklenti</span></span>
+      <span class="chip f-srv"><span lang="en">MCP server tools</span><span lang="tr">MCP sunucu araçları</span></span>
+      <span class="chip f-core"><span lang="en">core logic</span><span lang="tr">çekirdek mantık</span></span>
+      <span class="chip f-file"><span lang="en">files / 3rd-party</span><span lang="tr">dosyalar / 3. parti</span></span>
+    </div>
+
+    <div class="grid">
+      <div class="card"><h4><span class="dot f-ext"></span><code>extension.ts</code></h4>
+        <p lang="en">Registers the server with VS Code, draws the ⚡ status bar, provides the “Show Token Savings” command and watches <code>stats.json</code>.</p>
+        <p lang="tr">Sunucuyu VS Code'a kaydeder, ⚡ durum çubuğunu çizer, “Show Token Savings” komutunu sağlar ve <code>stats.json</code>'u izler.</p></div>
+      <div class="card"><h4><span class="dot f-srv"></span><code>mcp-server.ts</code></h4>
+        <p lang="en">A separate Node process (VS Code's bundled runtime) that speaks MCP over stdio and exposes three tools. The server itself lives in <code>mcp/</code>.</p>
+        <p lang="tr">stdio üzerinden MCP konuşan, ayrı bir Node süreci (VS Code'un gömülü çalışma zamanı); üç araç sunar. Sunucunun kendisi <code>mcp/</code> içindedir.</p></div>
+      <div class="card"><h4><span class="dot f-core"></span><code>core/</code></h4>
+        <p lang="en">No <code>vscode</code> import, so both sides can reuse it and it is easy to unit-test.</p>
+        <p lang="tr"><code>vscode</code> bağımlılığı yok; iki taraf da kullanabilir ve birim testi kolaydır.</p></div>
+      <div class="card"><h4><span class="dot f-file"></span><code>stats.json</code></h4>
+        <p lang="en">The only shared state. Written by every window's server (under a lock), watched by every window's extension.</p>
+        <p lang="tr">Tek ortak durum. Her pencerenin sunucusu yazar (kilit altında), her pencerenin eklentisi izler.</p></div>
+    </div>
+  </section>
+
+  <!-- 3 · FLOW -->
+  <section id="flow">
+    <h2><span class="num">3</span><span lang="en">Life of one tool call</span><span lang="tr">Bir araç çağrısının yaşam döngüsü</span></h2>
+    <p class="lead" lang="en">Follow the numbers: what happens, in order, when Copilot reads a file through <code>read_file_optimized</code>. Hover a step to highlight it in the diagram.</p>
+    <p class="lead" lang="tr">Numaraları takip edin: Copilot <code>read_file_optimized</code> ile bir dosya okuduğunda sırayla neler olur. Diyagramda vurgulamak için bir adımın üzerine gelin.</p>
+
+    <figure>
+      <div class="scroll">
+        <svg viewBox="0 0 1000 700" role="img"
+             data-label-en="Sequence diagram with nine numbered steps from Copilot calling read_file_optimized to the status bar refreshing"
+             data-label-tr="Copilot'ın read_file_optimized çağırmasından durum çubuğunun yenilenmesine kadar dokuz numaralı adımlı sıra diyagramı">
+
+          <!-- participants -->
+          <rect class="f-llm box" x="25" y="18" width="130" height="46" rx="10"/>
+          <text x="90" y="46" class="mid">Copilot (LLM)</text>
+          <rect class="f-ext box" x="190" y="18" width="130" height="46" rx="10"/>
+          <text x="255" y="38" class="mid">VS Code</text>
+          <text x="255" y="54" class="xs mid">MCP client</text>
+          <rect class="f-srv box" x="365" y="18" width="130" height="46" rx="10"/>
+          <text x="430" y="38" class="mid">MCP server</text>
+          <text x="430" y="54" class="xs mid mono">mcp-server.ts</text>
+          <rect class="f-core box" x="545" y="18" width="130" height="46" rx="10"/>
+          <text x="610" y="38" class="mid mono">core/*</text>
+          <text x="610" y="54" class="xs mid"><tspan lang="en">pure logic</tspan><tspan lang="tr">saf mantık</tspan></text>
+          <rect class="f-file box" x="710" y="18" width="130" height="46" rx="10"/>
+          <text x="775" y="38" class="mid mono">stats.json</text>
+          <text x="775" y="54" class="xs mid"><tspan lang="en">shared file</tspan><tspan lang="tr">ortak dosya</tspan></text>
+          <rect class="f-ext box" x="855" y="18" width="130" height="46" rx="10"/>
+          <text x="920" y="38" class="mid">Status bar</text>
+          <text x="920" y="54" class="xs mid mono">extension.ts</text>
+
+          <line class="lifeline" x1="90" y1="64" x2="90" y2="682"/>
+          <line class="lifeline" x1="255" y1="64" x2="255" y2="682"/>
+          <line class="lifeline" x1="430" y1="64" x2="430" y2="682"/>
+          <line class="lifeline" x1="610" y1="64" x2="610" y2="682"/>
+          <line class="lifeline" x1="775" y1="64" x2="775" y2="682"/>
+          <line class="lifeline" x1="920" y1="64" x2="920" y2="682"/>
+
+          <g class="step" data-flow="1">
+            <path class="arrow" d="M90 112 H253"/>
+            <circle class="badge" cx="112" cy="112" r="11"/><text class="badge-t" x="112" y="112">1</text>
+            <text x="190" y="96" class="sm mid halo mono">read_file_optimized(path)</text>
+          </g>
+          <g class="step" data-flow="2">
+            <path class="arrow" d="M255 166 H428"/>
+            <circle class="badge" cx="277" cy="166" r="11"/><text class="badge-t" x="277" y="166">2</text>
+            <text x="346" y="150" class="sm mid halo mono">tools/call (JSON-RPC)</text>
+          </g>
+          <g class="step" data-flow="3">
+            <path class="arrow" d="M430 214 H476 V246 H434"/>
+            <circle class="badge" cx="408" cy="230" r="11"/><text class="badge-t" x="408" y="230">3</text>
+            <text x="490" y="234" class="sm halo"><tspan lang="en">validate · confine path · read file</tspan><tspan lang="tr">doğrula · yolu sınırla · dosyayı oku</tspan></text>
+          </g>
+          <g class="step" data-flow="4">
+            <path class="arrow" d="M430 298 H608"/>
+            <circle class="badge" cx="452" cy="298" r="11"/><text class="badge-t" x="452" y="298">4</text>
+            <text x="519" y="282" class="sm mid halo mono">optimize(raw, {languageId})</text>
+          </g>
+          <g class="step" data-flow="5">
+            <path class="arrow" d="M610 330 H656 V362 H614"/>
+            <circle class="badge" cx="588" cy="346" r="11"/><text class="badge-t" x="588" y="346">5</text>
+            <text x="670" y="350" class="sm halo mono">redactSensitive()</text>
+          </g>
+          <g class="step" data-flow="6">
+            <path class="arrow" d="M430 414 H608"/>
+            <circle class="badge" cx="452" cy="414" r="11"/><text class="badge-t" x="452" y="414">6</text>
+            <text x="519" y="398" class="sm mid halo mono">measureSavings() · tiktoken</text>
+          </g>
+          <g class="step" data-flow="7">
+            <path class="arrow" d="M430 470 H773"/>
+            <circle class="badge" cx="452" cy="470" r="11"/><text class="badge-t" x="452" y="470">7</text>
+            <text x="600" y="454" class="sm mid halo mono">recordSavings(): lock → merge → rename</text>
+          </g>
+          <g class="step" data-flow="8">
+            <path class="arrow dash" d="M430 526 H257"/>
+            <circle class="badge" cx="408" cy="526" r="11"/><text class="badge-t" x="408" y="526">8</text>
+            <text x="343" y="510" class="sm mid halo"><tspan lang="en">optimized text + summary</tspan><tspan lang="tr">optimize metin + özet</tspan></text>
+            <path class="arrow dash" d="M255 574 H92"/>
+            <circle class="badge" cx="233" cy="574" r="11"/><text class="badge-t" x="233" y="574">8</text>
+            <text x="173" y="558" class="sm mid halo"><tspan lang="en">tool result</tspan><tspan lang="tr">araç sonucu</tspan></text>
+          </g>
+          <g class="step" data-flow="9">
+            <path class="arrow" d="M775 630 H918"/>
+            <circle class="badge" cx="797" cy="630" r="11"/><text class="badge-t" x="797" y="630">9</text>
+            <text x="848" y="614" class="sm mid halo mono">watcher → refresh()</text>
+            <text x="920" y="662" class="sm mid"><tspan lang="en">⚡ updates</tspan><tspan lang="tr">⚡ güncellenir</tspan></text>
+          </g>
+        </svg>
+      </div>
+      <figcaption lang="en">Dashed arrows are replies. Step 9 happens asynchronously, in every open window.</figcaption>
+      <figcaption lang="tr">Kesikli oklar yanıtlardır. 9. adım eşzamansız gerçekleşir ve açık her pencerede çalışır.</figcaption>
+    </figure>
+
+    <ol class="steps">
+      <li data-flow="1" tabindex="0"><span class="n">1</span><div>
+        <p lang="en">Copilot decides to read a file and calls <code>read_file_optimized</code>.</p>
+        <p lang="tr">Copilot bir dosya okumaya karar verir ve <code>read_file_optimized</code> aracını çağırır.</p>
+        <span class="who mono">tool description · .github/copilot-instructions.md</span></div></li>
+      <li data-flow="2" tabindex="0"><span class="n">2</span><div>
+        <p lang="en">VS Code (the MCP client) sends a JSON-RPC <code>tools/call</code> message to the server's stdin.</p>
+        <p lang="tr">VS Code (MCP istemcisi) sunucunun stdin'ine JSON-RPC <code>tools/call</code> mesajı gönderir.</p>
+        <span class="who mono">StdioServerTransport</span></div></li>
+      <li data-flow="3" tabindex="0"><span class="n">3</span><div>
+        <p lang="en">The input is validated (zod), <code>resolveWithinWorkspace()</code> keeps the path inside <code>WORKSPACE_ROOT</code> (symlinks included), and the file is read.</p>
+        <p lang="tr">Girdi zod ile doğrulanır, <code>resolveWithinWorkspace()</code> yolu <code>WORKSPACE_ROOT</code> içinde tutar (symlink'ler dahil) ve dosya okunur.</p>
+        <span class="who mono">mcp/tools/read-file-optimized.ts · core/workspace-path.ts</span></div></li>
+      <li data-flow="4" tabindex="0"><span class="n">4</span><div>
+        <p lang="en"><code>optimize()</code> removes whole-line comments, trailing spaces and extra blank lines (and folds repeated lines in logs). Markdown is left untouched.</p>
+        <p lang="tr"><code>optimize()</code> bütün satırı kaplayan yorumları, satır sonu boşluklarını ve fazla boş satırları siler (loglarda tekrar eden satırları da katlar). Markdown'a dokunulmaz.</p>
+        <span class="who mono">core/optimizer.ts · core/line-transforms.ts</span></div></li>
+      <li data-flow="5" tabindex="0"><span class="n">5</span><div>
+        <p lang="en"><code>redactSensitive()</code> masks secrets, e-mails, MAC and IP addresses. It always runs last.</p>
+        <p lang="tr"><code>redactSensitive()</code> gizli anahtarları, e-postaları, MAC ve IP adreslerini maskeler. Her zaman en son çalışır.</p>
+        <span class="who mono">core/redactor.ts</span></div></li>
+      <li data-flow="6" tabindex="0"><span class="n">6</span><div>
+        <p lang="en"><code>measureSavings()</code> counts tokens before and after with tiktoken (<code>o200k_base</code>).</p>
+        <p lang="tr"><code>measureSavings()</code> tiktoken (<code>o200k_base</code>) ile önce ve sonra token sayar.</p>
+        <span class="who mono">core/tokens.ts</span></div></li>
+      <li data-flow="7" tabindex="0"><span class="n">7</span><div>
+        <p lang="en"><code>recordSavings()</code> takes a cross-process lock, adds the numbers to <code>stats.json</code> and swaps the file atomically.</p>
+        <p lang="tr"><code>recordSavings()</code> süreçler arası kilit alır, sayıları <code>stats.json</code>'a ekler ve dosyayı atomik olarak değiştirir.</p>
+        <span class="who mono">core/stats-store.ts · core/file-lock.ts</span></div></li>
+      <li data-flow="8" tabindex="0"><span class="n">8</span><div>
+        <p lang="en">The reply, the optimized text preceded by a one-line summary when anything changed, travels back through VS Code to Copilot.</p>
+        <p lang="tr">Yanıt, yani optimize edilmiş metin (bir şey değiştiyse başında tek satırlık özetle), VS Code üzerinden Copilot'a geri döner.</p>
+        <span class="who mono">formatToolSummary() · core/format/tool-reply.ts</span></div></li>
+      <li data-flow="9" tabindex="0"><span class="n">9</span><div>
+        <p lang="en">The extension's file watcher notices the change and refreshes the status bar in every open window.</p>
+        <p lang="tr">Eklentinin dosya izleyicisi değişikliği fark eder ve açık her penceredeki durum çubuğunu yeniler.</p>
+        <span class="who mono">extension.ts → registerStatsWatcher()</span></div></li>
+    </ol>
+
+    <div class="note ok">
+      <strong><span lang="en">Good to know: the path is checked twice</span><span lang="tr">Bilmekte fayda var: yol iki kez denetlenir</span></strong>
+      <span lang="en"><code>resolveWithinWorkspace()</code> first checks the path as written (<code>..</code> and absolute paths outside the root are rejected without touching the disk), then checks where it really ends up after resolving symlinks, so a link inside the workspace cannot lead outside it. A folder whose name merely starts with two dots (such as <code>..hidden</code>) is an ordinary child.</span>
+      <span lang="tr"><code>resolveWithinWorkspace()</code> önce yolu yazıldığı gibi denetler (kökün dışındaki <code>..</code> ve mutlak yollar diske dokunmadan reddedilir), sonra symlink'leri çözüp yolun gerçekte nereye vardığına bakar; böylece çalışma alanı içindeki bir bağlantı dışarıya götüremez. Adı yalnızca iki nokta ile başlayan bir klasör (örneğin <code>..hidden</code>) sıradan bir alt öğedir.</span>
+    </div>
+  </section>
+
+  <!-- 4 · OPTIMIZER -->
+  <section id="optimizer">
+    <h2><span class="num">4</span><span lang="en">Inside the optimizer</span><span lang="tr">Optimizer'ın içi</span></h2>
+    <p class="lead" lang="en"><code>optimize()</code> in <code>core/optimizer.ts</code> chains small pure functions from <code>core/line-transforms.ts</code>: each stage takes lines in and gives lines out. No stage knows about VS Code or MCP.</p>
+    <p class="lead" lang="tr"><code>core/optimizer.ts</code> içindeki <code>optimize()</code>, <code>core/line-transforms.ts</code> dosyasındaki küçük ve saf fonksiyonları zincirler: her aşama satırları alır, satırları verir. Hiçbir aşama VS Code'u veya MCP'yi bilmez.</p>
+
+    <div class="pipe">
+      <div class="stage skip"><h4><i>0</i><span lang="en">Is it Markdown?</span><span lang="tr">Markdown mı?</span></h4>
+        <p lang="en">Markdown (by <code>languageId</code>, or no id given and it looks like Markdown) skips pruning completely.</p>
+        <p lang="tr">Markdown (<code>languageId</code> ile ya da id yoksa ve Markdown'a benziyorsa) budamayı tamamen atlar.</p>
+        <code>isMarkdown()</code></div>
+      <div class="stage"><h4><i>1</i><span lang="en">Remove whole-line comments</span><span lang="tr">Bütün satırı kaplayan yorumları sil</span></h4>
+        <p lang="en">Line comments (<code>//</code> or <code>#</code>) and block comments that occupy whole lines, for known languages only. A comment that shares a line with code stays, and so does a block comment that is never closed.</p>
+        <p lang="tr">Yalnızca bilinen diller için, bütün satırı kaplayan satır yorumları (<code>//</code> veya <code>#</code>) ve blok yorumları. Kodla aynı satırı paylaşan yorum kalır; hiç kapanmayan blok yorumu da kalır.</p>
+        <code>stripFullLineComments()</code></div>
+      <div class="stage"><h4><i>2</i><span lang="en">Trim trailing spaces</span><span lang="tr">Satır sonu boşluklarını kırp</span></h4>
+        <p lang="en">Removes invisible whitespace at the end of every line.</p>
+        <p lang="tr">Her satırın sonundaki görünmez boşlukları siler.</p>
+        <code>trimTrailingWhitespace()</code></div>
+      <div class="stage skip"><h4><i>3</i><span lang="en">Fold repeated lines (log / plaintext only)</span><span lang="tr">Tekrar eden satırları katla (yalnızca log / plaintext)</span></h4>
+        <p lang="en">N identical lines in a row become one line followed by <code>(xN)</code>. Never applied to code or data.</p>
+        <p lang="tr">Art arda gelen N aynı satır, tek satır ve ardından <code>(xN)</code> olur. Koda ve veriye asla uygulanmaz.</p>
+        <code>foldRepeatedLines()</code></div>
+      <div class="stage"><h4><i>4</i><span lang="en">Collapse blank lines</span><span lang="tr">Boş satırları teke indir</span></h4>
+        <p lang="en">Several blank lines in a row become one.</p>
+        <p lang="tr">Art arda birden çok boş satır tek satır olur.</p>
+        <code>collapseBlankLines()</code></div>
+      <div class="stage skip"><h4><i>5</i><span lang="en">Fold spaces (aggressive + plaintext only)</span><span lang="tr">Boşlukları katla (yalnızca aggressive + plaintext)</span></h4>
+        <p lang="en">Runs of spaces/tabs inside text become one space; indentation is kept. This is the only thing <code>level: "aggressive"</code> changes.</p>
+        <p lang="tr">Metin içindeki ardışık boşluk/tab tek boşluk olur; girinti korunur. <code>level: "aggressive"</code>'in değiştirdiği tek şey budur.</p>
+        <code>foldRepeatedSpaces()</code></div>
+      <div class="stage"><h4><i>6</i><span lang="en">Trim trailing blank lines</span><span lang="tr">Sondaki boş satırları kırp</span></h4>
+        <p lang="en">No empty lines at the end of the payload.</p>
+        <p lang="tr">İçeriğin sonunda boş satır kalmaz.</p>
+        <code>trimTrailingBlankLines()</code></div>
+      <div class="stage mask"><h4><i>7</i><span lang="en">Mask sensitive values</span><span lang="tr">Hassas değerleri maskele</span></h4>
+        <p lang="en">Always last, so the counters only count what would really reach the model. Details in section 5.</p>
+        <p lang="tr">Her zaman en son; böylece sayaçlar yalnızca modele gerçekten ulaşacak olanı sayar. Ayrıntılar 5. bölümde.</p>
+        <code>redactSensitive()</code></div>
+    </div>
+
+    <h3><span lang="en">See it work: a real run</span><span lang="tr">Çalışırken görün: gerçek bir çalıştırma</span></h3>
+    <p class="lead" lang="en">This payload went through the real engine: <code>optimize(raw, { languageId: 'typescript' })</code>. Left is the input (27 lines), right is the output (13 lines).</p>
+    <p class="lead" lang="tr">Bu içerik gerçek motordan geçirildi: <code>optimize(raw, { languageId: 'typescript' })</code>. Solda girdi (27 satır), sağda çıktı (13 satır).</p>
+    <div class="key">
+      <span class="k-rm"><span lang="en">removed</span><span lang="tr">silindi</span></span>
+      <span class="k-ch"><span lang="en">value masked</span><span lang="tr">değer maskelendi</span></span>
+      <span class="k-fold"><span lang="en">folded</span><span lang="tr">katlandı</span></span>
+      <span><span lang="en">kept</span><span lang="tr">korundu</span></span>
+    </div>
+
+    <div class="diff">
+      <div class="code">
+        <div class="bar"><span>payment-client.ts · <span lang="en">input</span><span lang="tr">girdi</span></span><span>175 tokens</span></div>
+        <div class="body">
+          <div class="ln rm" data-n="1">/**</div>
+          <div class="ln rm" data-n="2"> * Payment client.</div>
+          <div class="ln rm" data-n="3"> *</div>
+          <div class="ln rm" data-n="4"> * Talks to the payment gateway and retries failed calls.</div>
+          <div class="ln rm" data-n="5"> * Written by the platform team, last reviewed in 2024.</div>
+          <div class="ln rm" data-n="6"> */</div>
+          <div class="ln keep blank" data-n="7"></div>
+          <div class="ln rm" data-n="8">// gateway settings</div>
+          <div class="ln ch" data-n="9">const GATEWAY_HOST = "<mark>10.20.30.40</mark>";</div>
+          <div class="ln ch" data-n="10">const API_KEY = "<mark>AKIAIOSFODNN7EXAMPLE</mark>";</div>
+          <div class="ln ch" data-n="11">const SUPPORT = "<mark>ops@example.com</mark>";</div>
+          <div class="ln keep blank" data-n="12"></div>
+          <div class="ln rm" data-n="13"></div>
+          <div class="ln rm" data-n="14"></div>
+          <div class="ln rm" data-n="15">// retry up to three times</div>
+          <div class="ln keep" data-n="16">export async function charge(amount: number) {</div>
+          <div class="ln rm" data-n="17">  // log the attempt</div>
+          <div class="ln keep" data-n="18">  console.log("charging...");</div>
+          <div class="ln keep" data-n="19">  console.log("charging...");</div>
+          <div class="ln keep" data-n="20">  console.log("charging...");</div>
+          <div class="ln keep" data-n="21">  const res = await fetch(`https://${GATEWAY_HOST}/charge`, { method: "POST" });</div>
+          <div class="ln rm" data-n="22">  /* the gateway sometimes</div>
+          <div class="ln rm" data-n="23">     returns 502, so we</div>
+          <div class="ln rm" data-n="24">     must retry */</div>
+          <div class="ln keep" data-n="25">  if (!res.ok) throw new Error("charge failed");</div>
+          <div class="ln keep" data-n="26">  return res.json();</div>
+          <div class="ln keep" data-n="27">}</div>
+        </div>
+      </div>
+      <div class="code">
+        <div class="bar"><span>payment-client.ts · <span lang="en">output</span><span lang="tr">çıktı</span></span><span>106 tokens</span></div>
+        <div class="body">
+          <div class="ln keep blank" data-n="1"></div>
+          <div class="ln ch" data-n="2">const GATEWAY_HOST = "<mark>[REDACTED_IPV4]</mark>";</div>
+          <div class="ln ch" data-n="3">const API_KEY = "<mark>[REDACTED_SECRET]</mark>";</div>
+          <div class="ln ch" data-n="4">const SUPPORT = "<mark>[REDACTED_EMAIL]</mark>";</div>
+          <div class="ln keep blank" data-n="5"></div>
+          <div class="ln keep" data-n="6">export async function charge(amount: number) {</div>
+          <div class="ln keep" data-n="7">  console.log("charging...");</div>
+          <div class="ln keep" data-n="8">  console.log("charging...");</div>
+          <div class="ln keep" data-n="9">  console.log("charging...");</div>
+          <div class="ln keep" data-n="10">  const res = await fetch(`https://${GATEWAY_HOST}/charge`, { method: "POST" });</div>
+          <div class="ln keep" data-n="11">  if (!res.ok) throw new Error("charge failed");</div>
+          <div class="ln keep" data-n="12">  return res.json();</div>
+          <div class="ln keep" data-n="13">}</div>
+        </div>
+      </div>
+    </div>
+    <p lang="en"><strong>175 → 106 tokens</strong> (−69, 39.4%) · 693 → 404 characters · Redacted: 3 (1 secret, 1 IPv4, 1 e-mail). The three <code>console.log</code> lines stay: this is code, so repeated lines are never folded.</p>
+    <p lang="tr"><strong>175 → 106 token</strong> (−69, %39,4) · 693 → 404 karakter · Maskelenen: 3 (1 gizli anahtar, 1 IPv4, 1 e-posta). Üç <code>console.log</code> satırı kalır: bu bir koddur, bu yüzden tekrar eden satırlar asla katlanmaz.</p>
+
+    <p class="lead" lang="en"><strong>Logs fold too.</strong> With <code>languageId: 'log'</code> the same engine folds repeated lines (15 lines in, 4 lines out):</p>
+    <p class="lead" lang="tr"><strong>Loglar katlanır.</strong> <code>languageId: 'log'</code> ile aynı motor tekrar eden satırları katlar (15 satır girer, 4 satır çıkar):</p>
+    <div class="diff">
+      <div class="code">
+        <div class="bar"><span>worker.log · <span lang="en">input</span><span lang="tr">girdi</span></span><span>125 tokens</span></div>
+        <div class="body">
+          <div class="ln keep" data-n="1">2026-11-27 10:01:01 INFO  worker started</div>
+          <div class="ln keep" data-n="2">2026-11-27 10:01:02 WARN  upstream timeout, retrying</div>
+          <div class="ln fold" data-n="3">retrying request to upstream...</div>
+          <div class="ln rm" data-n="4">retrying request to upstream...</div>
+          <div class="ln rm" data-n="5">retrying request to upstream...</div>
+          <div class="ln rm" data-n="6">retrying request to upstream...</div>
+          <div class="ln rm" data-n="7">retrying request to upstream...</div>
+          <div class="ln rm" data-n="8">retrying request to upstream...</div>
+          <div class="ln rm" data-n="9">retrying request to upstream...</div>
+          <div class="ln rm" data-n="10">retrying request to upstream...</div>
+          <div class="ln rm" data-n="11">retrying request to upstream...</div>
+          <div class="ln rm" data-n="12">retrying request to upstream...</div>
+          <div class="ln rm" data-n="13">retrying request to upstream...</div>
+          <div class="ln rm" data-n="14">retrying request to upstream...</div>
+          <div class="ln keep" data-n="15">2026-11-27 10:01:14 INFO  recovered</div>
+        </div>
+      </div>
+      <div class="code">
+        <div class="bar"><span>worker.log · <span lang="en">output</span><span lang="tr">çıktı</span></span><span>63 tokens</span></div>
+        <div class="body">
+          <div class="ln keep" data-n="1">2026-11-27 10:01:01 INFO  worker started</div>
+          <div class="ln keep" data-n="2">2026-11-27 10:01:02 WARN  upstream timeout, retrying</div>
+          <div class="ln fold" data-n="3">retrying request to upstream...  <span class="x">(x12)</span></div>
+          <div class="ln keep" data-n="4">2026-11-27 10:01:14 INFO  recovered</div>
+        </div>
+      </div>
+    </div>
+    <p lang="en"><strong>125 → 63 tokens</strong> (−62, 49.6%). The 19-token summary line brings the reply to 82 tokens, a net saving of 43.</p>
+    <p lang="tr"><strong>125 → 63 token</strong> (−62, %49,6). 19 tokenlık özet satırı yanıtı 82 token yapar; net kazanç 43 token.</p>
+
+    <div class="note ok">
+      <strong><span lang="en">Good to know: how the optimizer stays safe</span><span lang="tr">Bilmekte fayda var: optimizer güvenli kalmak için ne yapar</span></strong>
+      <ul lang="en">
+        <li>Only comments that occupy whole lines are removed. A comment that shares a line with code, or comment-like text inside a string (for example the glob <code>"src/**/*.ts"</code>), is left alone: telling them apart would need a real parser, and guessing wrong deletes code.</li>
+        <li>Repeated lines are folded only for <code>log</code> and <code>plaintext</code>. Code and data (arrays, tables, markup) can repeat a line legitimately, so they are never folded. Pass <code>languageId: 'log'</code> to <code>optimize_context</code> for logs and terminal output.</li>
+        <li>With no <code>languageId</code>, text that merely <em>looks</em> like Markdown (any line starting with <code># </code>, <code>- </code> or <code>&gt; </code>) is not pruned at all, only redacted.</li>
+      </ul>
+      <ul lang="tr">
+        <li>Yalnızca bütün satırı kaplayan yorumlar silinir. Kodla aynı satırı paylaşan bir yorum ya da bir string içindeki yorum benzeri metin (örneğin <code>"src/**/*.ts"</code> glob'u) olduğu gibi bırakılır: ikisini ayırmak gerçek bir ayrıştırıcı (parser) gerektirir ve yanlış tahmin kodu siler.</li>
+        <li>Tekrar eden satırlar yalnızca <code>log</code> ve <code>plaintext</code> için katlanır. Kod ve veri (diziler, tablolar, işaretleme) bir satırı meşru olarak tekrarlayabilir; bu yüzden asla katlanmaz. Loglar ve terminal çıktıları için <code>optimize_context</code>'e <code>languageId: 'log'</code> verin.</li>
+        <li><code>languageId</code> verilmezse yalnızca Markdown'a <em>benzeyen</em> metin (<code># </code>, <code>- </code> veya <code>&gt; </code> ile başlayan herhangi bir satır) hiç budanmaz, yalnızca maskelenir.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 5 · REDACTION -->
+  <section id="redaction">
+    <h2><span class="num">5</span><span lang="en">Redaction: what gets masked</span><span lang="tr">Maskeleme: nelerin gizlendiği</span></h2>
+    <p class="lead" lang="en">Before anything reaches the model, sensitive values are replaced by placeholders and counted. The counters show up in tool replies, the status bar and the savings report.</p>
+    <p class="lead" lang="tr">Hiçbir şey modele ulaşmadan önce hassas değerler yer tutucularla değiştirilir ve sayılır. Sayaçlar araç yanıtlarında, durum çubuğunda ve tasarruf raporunda görünür.</p>
+
+    <div class="key">
+      <span class="k-ch"><span lang="en">value masked</span><span lang="tr">değer maskelendi</span></span>
+      <span><span lang="en">left alone</span><span lang="tr">dokunulmadı</span></span>
+    </div>
+    <div class="diff">
+      <div class="code">
+        <div class="bar"><span><span lang="en">input</span><span lang="tr">girdi</span></span><span>redactSensitive()</span></div>
+        <div class="body">
+          <div class="ln ch" data-n="1">DB_PASSWORD=<mark>hunter2hunter2</mark></div>
+          <div class="ln ch" data-n="2">const apiKey = "<mark>s3cr3tValue123</mark>";</div>
+          <div class="ln ch" data-n="3">Authorization: Bearer <mark>abcdefghijklmnopqrstuvwxyz</mark></div>
+          <div class="ln ch" data-n="4">postgres://admin:<mark>P4ssw0rd!</mark>@db.internal:5432/app</div>
+          <div class="ln ch" data-n="5">host=<mark>10.20.30.40</mark> local=127.0.0.1 version=1.2.3</div>
+          <div class="ln ch" data-n="6">nic <mark>00:1A:2B:3C:4D:5E</mark>  gw <mark>fe80::1ff:fe23:4567:890a</mark></div>
+          <div class="ln ch" data-n="7">contact: <mark>ops@example.com</mark></div>
+        </div>
+      </div>
+      <div class="code">
+        <div class="bar"><span><span lang="en">output</span><span lang="tr">çıktı</span></span><span>secrets 4 · IPv4 1 · IPv6 1 · MAC 1 · e-mail 1</span></div>
+        <div class="body">
+          <div class="ln ch" data-n="1">DB_PASSWORD=<mark>[REDACTED_SECRET]</mark></div>
+          <div class="ln ch" data-n="2">const apiKey = "<mark>[REDACTED_SECRET]</mark>";</div>
+          <div class="ln ch" data-n="3">Authorization: Bearer <mark>[REDACTED_SECRET]</mark></div>
+          <div class="ln ch" data-n="4">postgres://admin:<mark>[REDACTED_SECRET]</mark>@db.internal:5432/app</div>
+          <div class="ln ch" data-n="5">host=<mark>[REDACTED_IPV4]</mark> local=127.0.0.1 version=1.2.3</div>
+          <div class="ln ch" data-n="6">nic <mark>[REDACTED_MAC]</mark>  gw <mark>[REDACTED_IPV6]</mark></div>
+          <div class="ln ch" data-n="7">contact: <mark>[REDACTED_EMAIL]</mark></div>
+        </div>
+      </div>
+    </div>
+    <p lang="en">The key name stays (<code>DB_PASSWORD=</code>) so the model still understands the structure; only the value goes. Loopback <code>127.0.0.1</code> and the version string <code>1.2.3</code> are deliberately left alone.</p>
+    <p lang="tr">Anahtar adı kalır (<code>DB_PASSWORD=</code>); böylece model yapıyı anlamaya devam eder, yalnızca değer gider. Loopback <code>127.0.0.1</code> ve <code>1.2.3</code> sürüm metni bilerek bırakılır.</p>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr>
+          <th><span lang="en">Category</span><span lang="tr">Kategori</span></th>
+          <th><span lang="en">What it catches</span><span lang="tr">Neleri yakalar</span></th>
+          <th><span lang="en">Becomes</span><span lang="tr">Dönüşür</span></th>
+        </tr></thead>
+        <tbody>
+          <tr><td><span lang="en">Secrets</span><span lang="tr">Gizli anahtarlar</span></td>
+            <td><span lang="en">AWS <code>AKIA…</code>, GitHub <code>ghp_…</code>, Slack <code>xox…</code>, Google <code>AIza…</code>, Stripe, OpenAI/Anthropic <code>sk-…</code>, JWT, <code>Bearer …</code>, <code>user:PASSWORD@host</code>, <code>apiKey = "…"</code>, <code>DB_PASSWORD=…</code></span>
+                <span lang="tr">AWS <code>AKIA…</code>, GitHub <code>ghp_…</code>, Slack <code>xox…</code>, Google <code>AIza…</code>, Stripe, OpenAI/Anthropic <code>sk-…</code>, JWT, <code>Bearer …</code>, <code>user:PAROLA@host</code>, <code>apiKey = "…"</code>, <code>DB_PASSWORD=…</code></span></td>
+            <td><code>[REDACTED_SECRET]</code></td></tr>
+          <tr><td><span lang="en">Private keys</span><span lang="tr">Özel anahtarlar</span></td>
+            <td><span lang="en">Whole <code>-----BEGIN … PRIVATE KEY-----</code> … <code>-----END …-----</code> blocks</span><span lang="tr"><code>-----BEGIN … PRIVATE KEY-----</code> … <code>-----END …-----</code> bloklarının tamamı</span></td>
+            <td><code>[REDACTED_PRIVATE_KEY]</code></td></tr>
+          <tr><td><span lang="en">E-mail</span><span lang="tr">E-posta</span></td>
+            <td><code>name@host.tld</code></td>
+            <td><code>[REDACTED_EMAIL]</code></td></tr>
+          <tr><td>MAC</td>
+            <td><code>00:1A:2B:3C:4D:5E</code>, <code>00-1a-2b-3c-4d-5e</code>, <code>001a.2b3c.4d5e</code></td>
+            <td><code>[REDACTED_MAC]</code></td></tr>
+          <tr><td>IPv4</td>
+            <td><span lang="en">Valid addresses only. Keeps <code>0.0.0.0</code>, <code>127.0.0.1</code>, <code>255.255.255.255</code>; <code>1.2.3</code> and <code>999.1.1.1</code> are not addresses.</span><span lang="tr">Yalnızca geçerli adresler. <code>0.0.0.0</code>, <code>127.0.0.1</code>, <code>255.255.255.255</code> korunur; <code>1.2.3</code> ve <code>999.1.1.1</code> adres değildir.</span></td>
+            <td><code>[REDACTED_IPV4]</code></td></tr>
+          <tr><td>IPv6</td>
+            <td><span lang="en">Valid addresses containing a digit. Keeps <code>::</code> and <code>::1</code>; <code>std::string</code> and <code>12:30:45</code> are untouched.</span><span lang="tr">Rakam içeren geçerli adresler. <code>::</code> ve <code>::1</code> korunur; <code>std::string</code> ve <code>12:30:45</code>'e dokunulmaz.</span></td>
+            <td><code>[REDACTED_IPV6]</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p lang="en"><strong>Order matters.</strong> Patterns run in this sequence because earlier ones contain characters (<code>.</code> and <code>:</code>) that later ones also look for:</p>
+    <p lang="tr"><strong>Sıra önemlidir.</strong> Desenler bu sırayla çalışır; çünkü öncekiler, sonrakilerin de aradığı karakterleri (<code>.</code> ve <code>:</code>) içerir:</p>
+    <div class="chips">
+      <span class="chip f-bad">1 · <span lang="en">private keys</span><span lang="tr">özel anahtarlar</span></span>
+      <span class="chip f-bad">2 · <span lang="en">known token formats</span><span lang="tr">bilinen token biçimleri</span></span>
+      <span class="chip f-bad">3 · <span lang="en">key = value secrets</span><span lang="tr">anahtar = değer sırları</span></span>
+      <span class="chip f-warn">4 · <span lang="en">e-mails</span><span lang="tr">e-postalar</span></span>
+      <span class="chip f-warn">5 · MAC</span>
+      <span class="chip f-warn">6 · IPv4</span>
+      <span class="chip f-warn">7 · IPv6</span>
+    </div>
+    <div class="note">
+      <strong><span lang="en">Best effort, pattern-based</span><span lang="tr">En iyi çaba, desen tabanlı</span></strong>
+      <span lang="en">The redactor recognises well-known formats and obvious <code>name = "value"</code> assignments. It cannot know every possible secret, so treat it as a safety net, not a guarantee.</span>
+      <span lang="tr">Maskeleyici bilinen biçimleri ve belirgin <code>ad = "değer"</code> atamalarını tanır. Olası her sırrı bilemez; bu yüzden garanti değil, bir güvenlik ağı olarak düşünün.</span>
+    </div>
+  </section>
+
+  <!-- 6 · MEASURING -->
+  <section id="measuring">
+    <h2><span class="num">6</span><span lang="en">Measuring savings (and the “summary tax”)</span><span lang="tr">Kazancı ölçmek (ve “özet satırı vergisi”)</span></h2>
+    <p class="lead" lang="en">Savings are measured with a real tokenizer (tiktoken), not by counting characters. Every number goes into one JSON file that all VS Code windows share.</p>
+    <p class="lead" lang="tr">Kazanç, karakter saymakla değil gerçek bir tokenizer (tiktoken) ile ölçülür. Tüm sayılar, bütün VS Code pencerelerinin paylaştığı tek bir JSON dosyasına yazılır.</p>
+
+    <figure>
+      <div class="scroll">
+        <svg viewBox="0 0 1000 430" role="img"
+             data-label-en="Three VS Code windows, each with an extension and its own MCP server, all writing to and watching one shared stats.json"
+             data-label-tr="Her biri bir eklenti ve kendi MCP sunucusuna sahip üç VS Code penceresi; hepsi tek bir ortak stats.json dosyasına yazar ve onu izler">
+
+          <!-- Window A -->
+          <rect class="zone" x="20" y="16" width="300" height="160" rx="16"/>
+          <text x="36" y="42" class="zt"><tspan lang="en">VS Code window A</tspan><tspan lang="tr">VS Code penceresi A</tspan></text>
+          <rect class="f-ext box" x="30" y="62" width="135" height="94" rx="10"/>
+          <text x="97" y="88" class="mid"><tspan lang="en">Extension</tspan><tspan lang="tr">Eklenti</tspan></text>
+          <text x="97" y="108" class="xs mid"><tspan lang="en">status bar ⚡</tspan><tspan lang="tr">durum çubuğu ⚡</tspan></text>
+          <text x="97" y="126" class="xs mid"><tspan lang="en">watches the file</tspan><tspan lang="tr">dosyayı izler</tspan></text>
+          <rect class="f-srv box" x="175" y="62" width="135" height="94" rx="10"/>
+          <text x="242" y="88" class="mid"><tspan lang="en">MCP server</tspan><tspan lang="tr">MCP sunucusu</tspan></text>
+          <text x="242" y="108" class="xs mid"><tspan lang="en">its own process</tspan><tspan lang="tr">kendi süreci</tspan></text>
+          <text x="242" y="126" class="xs mid"><tspan lang="en">writes the file</tspan><tspan lang="tr">dosyayı yazar</tspan></text>
+
+          <!-- Window B -->
+          <rect class="zone" x="350" y="16" width="300" height="160" rx="16"/>
+          <text x="366" y="42" class="zt"><tspan lang="en">VS Code window B</tspan><tspan lang="tr">VS Code penceresi B</tspan></text>
+          <rect class="f-ext box" x="360" y="62" width="135" height="94" rx="10"/>
+          <text x="427" y="88" class="mid"><tspan lang="en">Extension</tspan><tspan lang="tr">Eklenti</tspan></text>
+          <text x="427" y="108" class="xs mid"><tspan lang="en">status bar ⚡</tspan><tspan lang="tr">durum çubuğu ⚡</tspan></text>
+          <text x="427" y="126" class="xs mid"><tspan lang="en">watches the file</tspan><tspan lang="tr">dosyayı izler</tspan></text>
+          <rect class="f-srv box" x="505" y="62" width="135" height="94" rx="10"/>
+          <text x="572" y="88" class="mid"><tspan lang="en">MCP server</tspan><tspan lang="tr">MCP sunucusu</tspan></text>
+          <text x="572" y="108" class="xs mid"><tspan lang="en">its own process</tspan><tspan lang="tr">kendi süreci</tspan></text>
+          <text x="572" y="126" class="xs mid"><tspan lang="en">writes the file</tspan><tspan lang="tr">dosyayı yazar</tspan></text>
+
+          <!-- Window C -->
+          <rect class="zone" x="680" y="16" width="300" height="160" rx="16"/>
+          <text x="696" y="42" class="zt"><tspan lang="en">VS Code window C</tspan><tspan lang="tr">VS Code penceresi C</tspan></text>
+          <rect class="f-ext box" x="690" y="62" width="135" height="94" rx="10"/>
+          <text x="757" y="88" class="mid"><tspan lang="en">Extension</tspan><tspan lang="tr">Eklenti</tspan></text>
+          <text x="757" y="108" class="xs mid"><tspan lang="en">status bar ⚡</tspan><tspan lang="tr">durum çubuğu ⚡</tspan></text>
+          <text x="757" y="126" class="xs mid"><tspan lang="en">watches the file</tspan><tspan lang="tr">dosyayı izler</tspan></text>
+          <rect class="f-srv box" x="835" y="62" width="135" height="94" rx="10"/>
+          <text x="902" y="88" class="mid"><tspan lang="en">MCP server</tspan><tspan lang="tr">MCP sunucusu</tspan></text>
+          <text x="902" y="108" class="xs mid"><tspan lang="en">its own process</tspan><tspan lang="tr">kendi süreci</tspan></text>
+          <text x="902" y="126" class="xs mid"><tspan lang="en">writes the file</tspan><tspan lang="tr">dosyayı yazar</tspan></text>
+
+          <!-- arrows: server writes (down), file is watched by extension (up) -->
+          <path class="arrow" d="M242 158 V266"/>
+          <path class="arrow" d="M97 266 V160"/>
+          <path class="arrow" d="M572 158 V266"/>
+          <path class="arrow" d="M427 266 V160"/>
+          <path class="arrow" d="M902 158 V266"/>
+          <path class="arrow" d="M757 266 V160"/>
+
+          <!-- shared file -->
+          <rect class="f-file box" x="40" y="268" width="920" height="104" rx="14"/>
+          <text x="500" y="298" class="mid mono">stats.json</text>
+          <text x="500" y="320" class="sm mid"><tspan lang="en">one cumulative total for ALL windows (the extension's global storage)</tspan><tspan lang="tr">TÜM pencereler için tek birikimli toplam (eklentinin global storage'ı)</tspan></text>
+          <text x="500" y="340" class="xs mid"><tspan lang="en">stats.json.lock/ → mkdir is atomic, so only one writer at a time</tspan><tspan lang="tr">stats.json.lock/ → mkdir atomiktir, yani aynı anda yalnızca tek yazar</tspan></text>
+          <text x="500" y="358" class="xs mid"><tspan lang="en">write temp file → rename: a reader never sees a half-written file</tspan><tspan lang="tr">geçici dosyaya yaz → rename: okuyucu yarım yazılmış dosya görmez</tspan></text>
+
+          <text x="40" y="404" class="sm"><tspan lang="en">↓ MCP server: recordSavings() · lock → merge → atomic rename</tspan><tspan lang="tr">↓ MCP sunucusu: recordSavings() · kilit → birleştir → atomik rename</tspan></text>
+          <text x="520" y="404" class="sm"><tspan lang="en">↑ extension: FileSystemWatcher → refresh() (also on window focus)</tspan><tspan lang="tr">↑ eklenti: FileSystemWatcher → refresh() (pencere odaklanınca da)</tspan></text>
+        </svg>
+      </div>
+      <figcaption lang="en">Without the lock, two windows reading and writing at the same moment would overwrite each other's numbers. A test fires 20 concurrent writes and checks that none is lost.</figcaption>
+      <figcaption lang="tr">Kilit olmasaydı, aynı anda okuyup yazan iki pencere birbirinin sayılarını ezerdi. Bir test, 20 eşzamanlı yazma yapar ve hiçbirinin kaybolmadığını doğrular.</figcaption>
+    </figure>
+
+    <h3><span lang="en">Two numbers: payload vs net</span><span lang="tr">İki sayı: payload ve net</span></h3>
+    <p class="lead" lang="en">Every changed reply starts with a one-line summary (about 19 tokens, a few more when values were masked) so the model can see what happened. That line costs tokens too, which is why the project tracks two different numbers:</p>
+    <p class="lead" lang="tr">Değişen her yanıt, modelin ne olduğunu görebilmesi için tek satırlık bir özetle (yaklaşık 19 token; değer maskelendiyse biraz fazlası) başlar. Bu satır da token harcar; bu yüzden proje iki farklı sayıyı izler:</p>
+    <div class="formula">
+      <div class="card"><b><span lang="en">Payload saved</span><span lang="tr">Payload kazancı</span></b><code>raw − optimized</code>
+        <p lang="en">How much smaller the content itself became.</p><p lang="tr">İçeriğin kendisinin ne kadar küçüldüğü.</p></div>
+      <div class="card"><b><span lang="en">Net saved</span><span lang="tr">Net kazanç</span></b><code>raw − (summary + optimized)</code>
+        <p lang="en">What you really save. It can be negative.</p><p lang="tr">Gerçekte ne kazandığınız. Negatif olabilir.</p></div>
+      <div class="card"><b><span lang="en">AI credits (estimate)</span><span lang="tr">AI kredisi (tahmin)</span></b><code>tokens × price ÷ 10,000</code>
+        <p lang="en">1 credit = $0.01. Default price: $1 per 1M input tokens (a setting).</p><p lang="tr">1 kredi = 0,01 $. Varsayılan fiyat: 1M giriş tokenı başına 1 $ (bir ayar).</p></div>
+    </div>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr>
+          <th><span lang="en">Input</span><span lang="tr">Girdi</span></th>
+          <th class="r"><span lang="en">Raw</span><span lang="tr">Ham</span></th>
+          <th class="r"><span lang="en">Optimized</span><span lang="tr">Optimize</span></th>
+          <th class="r"><span lang="en">Reply (summary + body)</span><span lang="tr">Yanıt (özet + gövde)</span></th>
+          <th class="r"><span lang="en">Payload saved</span><span lang="tr">Payload kazancı</span></th>
+          <th class="r"><span lang="en">Net saved</span><span lang="tr">Net kazanç</span></th>
+        </tr></thead>
+        <tbody>
+          <tr><td><span lang="en">one-line text file (4 tokens)</span><span lang="tr">tek satırlık metin dosyası (4 token)</span></td><td class="r">4</td><td class="r">3</td><td class="r">22</td><td class="r">1</td><td class="r neg">−18</td></tr>
+          <tr><td><span lang="en">payment-client.ts (section 4 sample)</span><span lang="tr">payment-client.ts (4. bölüm örneği)</span></td><td class="r">175</td><td class="r">106</td><td class="r">144</td><td class="r">69 (39.4%)</td><td class="r pos">+31</td></tr>
+          <tr><td><span lang="en">worker.log (section 4 log sample)</span><span lang="tr">worker.log (4. bölüm log örneği)</span></td><td class="r">125</td><td class="r">63</td><td class="r">82</td><td class="r">62 (49.6%)</td><td class="r pos">+43</td></tr>
+          <tr><td><code>src/core/redactor.ts</code></td><td class="r">1840</td><td class="r">1467</td><td class="r">1487</td><td class="r">373 (20.3%)</td><td class="r pos">+353</td></tr>
+          <tr><td><code>src/core/stats-store.ts</code></td><td class="r">1445</td><td class="r">966</td><td class="r">985</td><td class="r">479 (33.1%)</td><td class="r pos">+460</td></tr>
+          <tr><td><code>src/extension.ts</code></td><td class="r">1251</td><td class="r">1080</td><td class="r">1100</td><td class="r">171 (13.7%)</td><td class="r pos">+151</td></tr>
+          <tr><td><code>src/core/optimizer.ts</code></td><td class="r">1084</td><td class="r">538</td><td class="r">557</td><td class="r">546 (50.4%)</td><td class="r pos">+527</td></tr>
+          <tr><td><code>src/core/line-transforms.ts</code></td><td class="r">1067</td><td class="r">783</td><td class="r">802</td><td class="r">284 (26.6%)</td><td class="r pos">+265</td></tr>
+          <tr><td><code>src/core/format/savings-report.ts</code> <span lang="en">(already compact)</span><span lang="tr">(zaten kompakt)</span></td><td class="r">440</td><td class="r">427</td><td class="r">445</td><td class="r">13 (3.0%)</td><td class="r neg">−5</td></tr>
+          <tr><td><code>README.md</code> <span lang="en">(Markdown is never pruned, so no summary is added)</span><span lang="tr">(Markdown asla budanmaz, bu yüzden özet eklenmez)</span></td><td class="r">7591</td><td class="r">7591</td><td class="r">7591</td><td class="r">0 (0.0%)</td><td class="r">0</td></tr>
+          <tr><td><strong><span lang="en">Total (all 22 source files)</span><span lang="tr">Toplam (22 kaynak dosyasının tamamı)</span></strong></td><td class="r"><strong>13567</strong></td><td class="r"><strong>9921</strong></td><td class="r"><strong>10328</strong></td><td class="r"><strong>3646 (26.9%)</strong></td><td class="r pos">+3239 (23.9%)</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p lang="en">The summary line costs about 19 tokens and is left out when nothing changed, so an untouched payload such as Markdown costs nothing extra. A file that shrinks by less than the summary costs ends slightly negative; large, comment-heavy source files are where the tool pays off.</p>
+    <p lang="tr">Özet satırı yaklaşık 19 token tutar ve hiçbir şey değişmediyse eklenmez; bu yüzden Markdown gibi dokunulmayan bir içerik ek maliyet getirmez. Özetin maliyetinden daha az küçülen bir dosya hafif negatif biter; araç, büyük ve yorum yoğun kaynak dosyalarında kendini öder.</p>
+
+    <h3><span lang="en">What the status bar shows</span><span lang="tr">Durum çubuğunda ne görünür</span></h3>
+    <p><span class="statusbar">⚡ Reply 3239 saved tokens · ~0.3239 AI credits · 🛡 3 redacted</span></p>
+    <p><span class="statusbar bad">⚡ Reply 18 added tokens · ~0.0018 AI credits added · 🛡 0 redacted</span></p>
+    <p lang="en">Format produced by <code>formatStatusBarText()</code>; the values here are examples. A <em>Payload …</em> part is added only when older calls (before v0.0.8) were recorded without a measured reply. Click the item to open the full report (<em>AI Token Optimizer: Show Token Savings</em>).</p>
+    <p lang="tr"><code>formatStatusBarText()</code> tarafından üretilen biçim; buradaki değerler örnektir. <em>Payload …</em> bölümü yalnızca yanıtı ölçülmeden kaydedilmiş eski çağrılar (v0.0.8 öncesi) varsa eklenir. Tam raporu açmak için öğeye tıklayın (<em>AI Token Optimizer: Show Token Savings</em>).</p>
+  </section>
+
+  <!-- 7 · CODE MAP -->
+  <section id="map">
+    <h2><span class="num">7</span><span lang="en">Code map</span><span lang="tr">Kod haritası</span></h2>
+    <p class="lead" lang="en">22 source files, 1,521 lines. Imports never point upwards: entry points use services, services use building blocks, and no module imports from a layer above it. The dots show which process loads what, which is the key to keeping the extension host light.</p>
+    <p class="lead" lang="tr">22 kaynak dosya, 1.521 satır. İçe aktarmalar asla yukarı yönlü değildir: giriş noktaları servisleri, servisler yapı taşlarını kullanır ve hiçbir modül üstündeki bir katmandan içe aktarmaz. Noktalar hangi sürecin neyi yüklediğini gösterir; eklenti ana sürecini hafif tutmanın anahtarı budur.</p>
+
+    <figure>
+      <div class="scroll">
+        <svg viewBox="0 0 1000 440" role="img"
+             data-label-en="Layer diagram: entry points use services, which use building blocks; dots show which modules the extension host and the MCP server process load"
+             data-label-tr="Katman diyagramı: giriş noktaları servisleri, servisler yapı taşlarını kullanır; noktalar eklenti ana sürecinin ve MCP sunucu sürecinin hangi modülleri yüklediğini gösterir">
+
+          <circle class="dot-e" cx="34" cy="20" r="6"/>
+          <text x="46" y="24" class="sm"><tspan lang="en">loaded by the extension host</tspan><tspan lang="tr">eklenti ana süreci yükler</tspan></text>
+          <circle class="dot-s" cx="290" cy="20" r="6"/>
+          <text x="302" y="24" class="sm"><tspan lang="en">loaded by the MCP server process</tspan><tspan lang="tr">MCP sunucu süreci yükler</tspan></text>
+
+          <rect class="zone" x="16" y="44" width="968" height="86" rx="14"/>
+          <text x="30" y="66" class="zt"><tspan lang="en">Entry points</tspan><tspan lang="tr">Giriş noktaları</tspan></text>
+          <rect class="zone" x="16" y="154" width="968" height="104" rx="14"/>
+          <text x="30" y="176" class="zt"><tspan lang="en">Services</tspan><tspan lang="tr">Servisler</tspan></text>
+          <rect class="zone" x="16" y="282" width="968" height="104" rx="14"/>
+          <text x="30" y="304" class="zt"><tspan lang="en">Building blocks</tspan><tspan lang="tr">Yapı taşları</tspan></text>
+
+          <path class="arrow" d="M500 132 V152"/>
+          <text x="512" y="147" class="xs"><tspan lang="en">uses</tspan><tspan lang="tr">kullanır</tspan></text>
+          <path class="arrow" d="M500 260 V280"/>
+          <text x="512" y="275" class="xs"><tspan lang="en">uses</tspan><tspan lang="tr">kullanır</tspan></text>
+
+          <!-- entry points -->
+          <rect class="f-ext box" x="200" y="72" width="200" height="44" rx="10"/>
+          <text x="300" y="91" class="mid mono" style="font-size:13px">extension.ts</text>
+          <text x="300" y="107" class="xs mid"><tspan lang="en">160 lines</tspan><tspan lang="tr">160 satır</tspan></text>
+          <circle class="dot-e" cx="386" cy="82" r="5"/>
+
+          <rect class="f-srv box" x="540" y="72" width="300" height="44" rx="10"/>
+          <text x="690" y="91" class="mid mono" style="font-size:13px">mcp-server.ts + mcp/</text>
+          <text x="690" y="107" class="xs mid"><tspan lang="en">299 lines · 8 files</tspan><tspan lang="tr">299 satır · 8 dosya</tspan></text>
+          <circle class="dot-s" cx="826" cy="82" r="5"/>
+
+          <!-- services -->
+          <rect class="f-core box" x="35" y="188" width="170" height="56" rx="10"/>
+          <text x="120" y="211" class="mid mono" style="font-size:13px">format/</text>
+          <text x="120" y="230" class="xs mid"><tspan lang="en">183 lines · 4 files</tspan><tspan lang="tr">183 satır · 4 dosya</tspan></text>
+          <circle class="dot-e" cx="171" cy="195" r="5"/><circle class="dot-s" cx="189" cy="195" r="5"/>
+
+          <rect class="f-core box" x="225" y="188" width="170" height="56" rx="10"/>
+          <text x="310" y="211" class="mid mono" style="font-size:13px">stats-store.ts</text>
+          <text x="310" y="230" class="xs mid"><tspan lang="en">153 lines</tspan><tspan lang="tr">153 satır</tspan></text>
+          <circle class="dot-e" cx="361" cy="195" r="5"/><circle class="dot-s" cx="379" cy="195" r="5"/>
+
+          <rect class="f-core box" x="415" y="188" width="170" height="56" rx="10"/>
+          <text x="500" y="211" class="mid mono" style="font-size:13px">optimizer.ts</text>
+          <text x="500" y="230" class="xs mid"><tspan lang="en">124 lines</tspan><tspan lang="tr">124 satır</tspan></text>
+          <circle class="dot-s" cx="569" cy="195" r="5"/>
+
+          <rect class="f-core box" x="605" y="188" width="170" height="56" rx="10"/>
+          <text x="690" y="211" class="mid mono" style="font-size:13px">tokens.ts</text>
+          <text x="690" y="230" class="xs mid"><tspan lang="en">67 lines</tspan><tspan lang="tr">67 satır</tspan></text>
+          <circle class="dot-s" cx="759" cy="195" r="5"/>
+
+          <rect class="f-core box" x="795" y="188" width="170" height="56" rx="10"/>
+          <text x="880" y="211" class="mid mono" style="font-size:13px">workspace-path.ts</text>
+          <text x="880" y="230" class="xs mid"><tspan lang="en">52 lines</tspan><tspan lang="tr">52 satır</tspan></text>
+          <circle class="dot-s" cx="949" cy="195" r="5"/>
+
+          <!-- building blocks -->
+          <rect class="f-core box" x="35" y="316" width="170" height="56" rx="10"/>
+          <text x="120" y="339" class="mid mono" style="font-size:13px">redactor.ts</text>
+          <text x="120" y="358" class="xs mid"><tspan lang="en">162 lines</tspan><tspan lang="tr">162 satır</tspan></text>
+          <circle class="dot-e" cx="171" cy="323" r="5"/><circle class="dot-s" cx="189" cy="323" r="5"/>
+
+          <rect class="f-core box" x="225" y="316" width="170" height="56" rx="10"/>
+          <text x="310" y="339" class="mid mono" style="font-size:13px">file-lock.ts</text>
+          <text x="310" y="358" class="xs mid"><tspan lang="en">65 lines</tspan><tspan lang="tr">65 satır</tspan></text>
+          <circle class="dot-e" cx="361" cy="323" r="5"/><circle class="dot-s" cx="379" cy="323" r="5"/>
+
+          <rect class="f-core box" x="415" y="316" width="150" height="56" rx="10"/>
+          <text x="490" y="339" class="mid mono" style="font-size:13px">credits.ts</text>
+          <text x="490" y="358" class="xs mid"><tspan lang="en">20 lines</tspan><tspan lang="tr">20 satır</tspan></text>
+          <circle class="dot-e" cx="531" cy="323" r="5"/><circle class="dot-s" cx="549" cy="323" r="5"/>
+
+          <rect class="f-core box" x="585" y="316" width="250" height="56" rx="10"/>
+          <text x="710" y="339" class="mid mono" style="font-size:12.5px">languages · line-transforms</text>
+          <text x="710" y="358" class="xs mid"><tspan lang="en">236 lines · 2 files</tspan><tspan lang="tr">236 satır · 2 dosya</tspan></text>
+          <circle class="dot-s" cx="819" cy="323" r="5"/>
+
+          <rect class="f-file box" x="852" y="316" width="122" height="56" rx="10" style="stroke-dasharray:5 4"/>
+          <text x="913" y="339" class="mid mono" style="font-size:13px">tiktoken</text>
+          <text x="913" y="358" class="xs mid"><tspan lang="en">external (WASM)</tspan><tspan lang="tr">harici (WASM)</tspan></text>
+          <circle class="dot-s" cx="958" cy="323" r="5"/>
+
+          <text x="16" y="408" class="sm"><tspan lang="en">Imports never point up. They may skip a layer; a few services also share types with each other.</tspan><tspan lang="tr">İçe aktarmalar asla yukarı yönlü değildir. Bir katmanı atlayabilir; bazı servisler birbirleriyle yalnızca tip paylaşır.</tspan></text>
+          <text x="16" y="428" class="sm"><tspan lang="en">Only tokens.ts loads the tokenizer, so the extension host never pays for it.</tspan><tspan lang="tr">Tokenizer'ı yalnızca tokens.ts yükler; bu yüzden eklenti ana süreci bedelini ödemez.</tspan></text>
+        </svg>
+      </div>
+    </figure>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr>
+          <th><span lang="en">File (under src/)</span><span lang="tr">Dosya (src/ altında)</span></th>
+          <th class="r"><span lang="en">Lines</span><span lang="tr">Satır</span></th>
+          <th><span lang="en">Role</span><span lang="tr">Görevi</span></th>
+          <th><span lang="en">Imports</span><span lang="tr">İçe aktarır</span></th>
+          <th><span lang="en">Tests (test/*.test.ts)</span><span lang="tr">Testler (test/*.test.ts)</span></th>
+        </tr></thead>
+        <tbody>
+          <tr><td><code>extension.ts</code></td><td class="r">160</td>
+            <td><span lang="en">VS Code entry point: status bar, command, MCP provider, file watcher</span><span lang="tr">VS Code giriş noktası: durum çubuğu, komut, MCP sağlayıcısı, dosya izleyici</span></td>
+            <td>stats-store, format/, credits, vscode</td><td>extension (5)</td></tr>
+          <tr><td><code>mcp-server.ts</code></td><td class="r">37</td>
+            <td><span lang="en">MCP server entry point: configuration → server → stdio</span><span lang="tr">MCP sunucusu giriş noktası: yapılandırma → sunucu → stdio</span></td>
+            <td>mcp/, MCP SDK</td><td><span lang="en">via mcp-server</span><span lang="tr">mcp-server üzerinden</span></td></tr>
+          <tr><td><code>mcp/*.ts</code> <span lang="en">(3 files)</span><span lang="tr">(3 dosya)</span></td><td class="r">87</td>
+            <td><span lang="en">Builds the server and registers the tools; environment → configuration; stderr logging</span><span lang="tr">Sunucuyu kurar ve araçları kaydeder; ortam → yapılandırma; stderr günlüğü</span></td>
+            <td>mcp/tools/, credits, MCP SDK</td><td>mcp-server (12)</td></tr>
+          <tr><td><code>mcp/tools/*.ts</code> <span lang="en">(4 files)</span><span lang="tr">(4 dosya)</span></td><td class="r">175</td>
+            <td><span lang="en">The three tools plus the shared reply helper (optimize → measure → summary → record)</span><span lang="tr">Üç araç ve ortak yanıt yardımcısı (optimize → ölç → özet → kaydet)</span></td>
+            <td>optimizer, tokens, stats-store, format/, workspace-path, languages, zod</td><td>mcp-server</td></tr>
+          <tr><td><code>core/optimizer.ts</code></td><td class="r">124</td>
+            <td><span lang="en">Pruning pipeline (section 4)</span><span lang="tr">Budama hattı (4. bölüm)</span></td>
+            <td>languages, line-transforms, redactor</td><td>optimizer (26)</td></tr>
+          <tr><td><code>core/languages.ts</code></td><td class="r">93</td>
+            <td><span lang="en">Comment syntax per language; file extension → <code>languageId</code></span><span lang="tr">Dile göre yorum sözdizimi; dosya uzantısı → <code>languageId</code></span></td>
+            <td>—</td><td><span lang="en">in optimizer</span><span lang="tr">optimizer içinde</span></td></tr>
+          <tr><td><code>core/line-transforms.ts</code></td><td class="r">143</td>
+            <td><span lang="en">Pure line transforms: whole-line comments, blank and repeated lines</span><span lang="tr">Saf satır dönüşümleri: bütün satırı kaplayan yorumlar, boş ve tekrar eden satırlar</span></td>
+            <td>languages <span lang="en">(type only)</span><span lang="tr">(yalnızca tip)</span></td><td><span lang="en">in optimizer</span><span lang="tr">optimizer içinde</span></td></tr>
+          <tr><td><code>core/redactor.ts</code></td><td class="r">162</td>
+            <td><span lang="en">Masks secrets, IP/MAC addresses, e-mails (section 5)</span><span lang="tr">Gizli anahtar, IP/MAC adresi, e-posta maskeleme (5. bölüm)</span></td>
+            <td>—</td><td>redactor (10)</td></tr>
+          <tr><td><code>core/tokens.ts</code></td><td class="r">67</td>
+            <td><span lang="en">Token counting with tiktoken; <code>measureSavings()</code></span><span lang="tr">tiktoken ile token sayımı; <code>measureSavings()</code></span></td>
+            <td>tiktoken</td><td>tokens (3)</td></tr>
+          <tr><td><code>core/credits.ts</code></td><td class="r">20</td>
+            <td><span lang="en">Default input price and the AI-credit estimate</span><span lang="tr">Varsayılan giriş fiyatı ve AI kredisi tahmini</span></td>
+            <td>—</td><td>credits (3)</td></tr>
+          <tr><td><code>core/stats-store.ts</code></td><td class="r">153</td>
+            <td><span lang="en">The cumulative <code>stats.json</code>: <code>readStats()</code> and <code>recordSavings()</code></span><span lang="tr">Birikimli <code>stats.json</code>: <code>readStats()</code> ve <code>recordSavings()</code></span></td>
+            <td>credits, file-lock, redactor <span lang="en">+ a type from tokens</span><span lang="tr">+ tokens'tan bir tip</span></td><td>stats-store (5)</td></tr>
+          <tr><td><code>core/file-lock.ts</code></td><td class="r">65</td>
+            <td><span lang="en">Cross-process lock built on atomic <code>mkdir</code></span><span lang="tr">Atomik <code>mkdir</code> üzerine kurulu süreçler arası kilit</span></td>
+            <td>—</td><td>file-lock (4)</td></tr>
+          <tr><td><code>core/workspace-path.ts</code></td><td class="r">52</td>
+            <td><span lang="en">Keeps file paths inside the workspace root, symlinks included</span><span lang="tr">Dosya yollarını çalışma alanı kökünde tutar, symlink'ler dahil</span></td>
+            <td>—</td><td>workspace-path (9)</td></tr>
+          <tr><td><code>core/format/*.ts</code> <span lang="en">(4 files)</span><span lang="tr">(4 dosya)</span></td><td class="r">183</td>
+            <td><span lang="en">Text for the status bar, the savings report and tool replies</span><span lang="tr">Durum çubuğu, tasarruf raporu ve araç yanıtları için metinler</span></td>
+            <td>redactor <span lang="en">+ types from stats-store, tokens</span><span lang="tr">+ stats-store, tokens tipleri</span></td><td>format (3)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3><span lang="en">Suggested reading order</span><span lang="tr">Önerilen okuma sırası</span></h3>
+    <ol class="read" lang="en">
+      <li><code>core/optimizer.ts</code> and <code>core/line-transforms.ts</code>: the heart; small pure functions.</li>
+      <li><code>core/redactor.ts</code>: the regular-expression tables.</li>
+      <li><code>mcp/server.ts</code> and <code>mcp/tools/</code>: how the engine becomes three MCP tools.</li>
+      <li><code>core/stats-store.ts</code> and <code>core/file-lock.ts</code>: how numbers are stored safely.</li>
+      <li><code>extension.ts</code> and <code>core/format/</code>: what you see inside VS Code.</li>
+      <li><code>test/</code>: executable examples of every rule on this page.</li>
+    </ol>
+    <ol class="read" lang="tr">
+      <li><code>core/optimizer.ts</code> ve <code>core/line-transforms.ts</code>: kalp; küçük, saf fonksiyonlar.</li>
+      <li><code>core/redactor.ts</code>: düzenli ifade (regex) tabloları.</li>
+      <li><code>mcp/server.ts</code> ve <code>mcp/tools/</code>: motorun üç MCP aracına nasıl dönüştüğü.</li>
+      <li><code>core/stats-store.ts</code> ve <code>core/file-lock.ts</code>: sayıların güvenle nasıl saklandığı.</li>
+      <li><code>extension.ts</code> ve <code>core/format/</code>: VS Code içinde gördükleriniz.</li>
+      <li><code>test/</code>: bu sayfadaki her kuralın çalıştırılabilir örnekleri.</li>
+    </ol>
+  </section>
+
+  <!-- 8 · CHEAT SHEET -->
+  <section id="cheatsheet">
+    <h2><span class="num">8</span><span lang="en">Cheat sheet</span><span lang="tr">Özet kart</span></h2>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr>
+          <th><span lang="en">MCP tool</span><span lang="tr">MCP aracı</span></th>
+          <th><span lang="en">Input</span><span lang="tr">Girdi</span></th>
+          <th><span lang="en">What it does</span><span lang="tr">Ne yapar</span></th>
+        </tr></thead>
+        <tbody>
+          <tr><td><code>optimize_context</code></td><td><code>text</code>, <code>languageId?</code>, <code>level?</code></td>
+            <td><span lang="en">Optimizes any text you hand it (logs, terminal output, API responses). Pass <code>languageId: "log"</code> for logs so repeated lines fold. Returns the optimized text, preceded by a one-line summary when anything changed.</span><span lang="tr">Verdiğiniz her metni (log, terminal çıktısı, API yanıtı) optimize eder. Loglar için <code>languageId: "log"</code> verin; tekrar eden satırlar katlanır. Optimize metni döndürür; bir şey değiştiyse başında tek satırlık özet bulunur.</span></td></tr>
+          <tr><td><code>read_file_optimized</code></td><td><code>path</code>, <code>level?</code></td>
+            <td><span lang="en">Reads a workspace file (the path must stay inside the workspace root) and returns the optimized content.</span><span lang="tr">Çalışma alanındaki bir dosyayı okur (yol çalışma alanı kökü içinde kalmalıdır) ve optimize içeriği döndürür.</span></td></tr>
+          <tr><td><code>get_token_stats</code></td><td>—</td>
+            <td><span lang="en">Returns the cumulative statistics stored in <code>stats.json</code>.</span><span lang="tr"><code>stats.json</code> içindeki birikimli istatistikleri döndürür.</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p lang="en"><code>level</code> is <code>"conservative"</code> (default) or <code>"aggressive"</code>. The only thing aggressive changes is folding repeated spaces in plain text.</p>
+    <p lang="tr"><code>level</code> değeri <code>"conservative"</code> (varsayılan) ya da <code>"aggressive"</code> olur. Aggressive'in değiştirdiği tek şey, düz metindeki ardışık boşlukları katlamaktır.</p>
+
+    <div class="grid">
+      <div class="card"><h4><span lang="en">Run it locally</span><span lang="tr">Yerelde çalıştır</span></h4>
+        <p><code>npm install</code><br><code>npm run compile</code><br><span lang="en">press <code>F5</code> in VS Code (Extension Development Host)</span><span lang="tr">VS Code'da <code>F5</code> (Extension Development Host)</span><br><code>npm test</code> <span lang="en">(compile, type-check, lint, tests)</span><span lang="tr">(derleme, tip kontrolü, lint, testler)</span></p></div>
+      <div class="card"><h4><span lang="en">Setting &amp; command</span><span lang="tr">Ayar ve komut</span></h4>
+        <p><code>aiTokenOptimizer.aiCreditInputPricePerMillionUsd</code> <span lang="en">(default 1)</span><span lang="tr">(varsayılan 1)</span><br><span lang="en">Command Palette → <em>AI Token Optimizer: Show Token Savings</em></span><span lang="tr">Komut Paleti → <em>AI Token Optimizer: Show Token Savings</em></span></p></div>
+      <div class="card"><h4><span lang="en">Make Copilot use it</span><span lang="tr">Copilot'a kullandır</span></h4>
+        <p lang="en">Add <code>.github/copilot-instructions.md</code> (the README has a ready text) or disable the built-in file-read tool in the Tools picker.</p>
+        <p lang="tr"><code>.github/copilot-instructions.md</code> ekleyin (README'de hazır metin var) ya da Tools seçicisinden yerleşik dosya okuma aracını kapatın.</p></div>
+      <div class="card"><h4><span lang="en">Other MCP clients</span><span lang="tr">Diğer MCP istemcileri</span></h4>
+        <p lang="en">Claude Code, Claude Desktop, Cursor: run <code>node out/mcp-server.js</code> with the environment variables below.</p>
+        <p lang="tr">Claude Code, Claude Desktop, Cursor: <code>node out/mcp-server.js</code> komutunu aşağıdaki ortam değişkenleriyle çalıştırın.</p></div>
+    </div>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr>
+          <th><span lang="en">Environment variable</span><span lang="tr">Ortam değişkeni</span></th>
+          <th><span lang="en">Meaning</span><span lang="tr">Anlamı</span></th>
+        </tr></thead>
+        <tbody>
+          <tr><td><code>WORKSPACE_ROOT</code></td><td><span lang="en">The folder <code>read_file_optimized</code> may read from. If it is missing, file reads are disabled.</span><span lang="tr"><code>read_file_optimized</code>'ın okuyabileceği klasör. Yoksa dosya okuma kapalıdır.</span></td></tr>
+          <tr><td><code>STATS_FILE</code></td><td><span lang="en">Path of the shared JSON file. If it is missing, no statistics are recorded.</span><span lang="tr">Ortak JSON dosyasının yolu. Yoksa istatistik kaydedilmez.</span></td></tr>
+          <tr><td><code>AI_CREDIT_INPUT_PRICE_PER_MILLION_USD</code></td><td><span lang="en">Price used for the AI-credit estimate (default 1).</span><span lang="tr">AI kredisi tahmininde kullanılan fiyat (varsayılan 1).</span></td></tr>
+          <tr><td><code>ELECTRON_RUN_AS_NODE=1</code></td><td><span lang="en">Set by the extension so VS Code's own binary runs the server as plain Node (no <code>node</code> on PATH needed).</span><span lang="tr">Eklenti tarafından ayarlanır; VS Code'un kendi çalıştırılabilir dosyası sunucuyu düz Node olarak çalıştırır (PATH'te <code>node</code> gerekmez).</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+</div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p lang="en">Based on v0.0.10 (commit <code>9263736</code>) plus the fixes listed under Unreleased in the CHANGELOG. Every number on this page comes from running the real code in this repository. This folder is excluded from the extension package.</p>
+    <p lang="tr">v0.0.10 (<code>9263736</code> commit'i) ve CHANGELOG'daki Unreleased bölümünde listelenen düzeltmelere dayanır. Bu sayfadaki her sayı, bu depodaki gerçek kod çalıştırılarak elde edildi. Bu klasör eklenti paketine dahil edilmez.</p>
+  </div>
+</footer>
+
+<script>
+(function () {
+  var root = document.documentElement;
+  var KEY = 'ato-guide-lang';
+  var TITLES = { en: 'AI Token Optimizer — Visual Guide', tr: 'AI Token Optimizer — Görsel Rehber' };
+
+  function initialLanguage() {
+    var fromUrl = new URLSearchParams(location.search).get('lang');
+    if (fromUrl === 'en' || fromUrl === 'tr') { return fromUrl; }
+    try {
+      var saved = localStorage.getItem(KEY);
+      if (saved === 'en' || saved === 'tr') { return saved; }
+    } catch (e) { /* storage can be unavailable on file:// in some browsers */ }
+    return /^tr\b/i.test(navigator.language || '') ? 'tr' : 'en';
+  }
+
+  function applyLanguage(lang, remember) {
+    root.setAttribute('lang', lang);
+    document.title = TITLES[lang];
+    document.querySelectorAll('[data-set-lang]').forEach(function (button) {
+      button.setAttribute('aria-pressed', String(button.getAttribute('data-set-lang') === lang));
+    });
+    document.querySelectorAll('svg[data-label-' + lang + ']').forEach(function (svg) {
+      svg.setAttribute('aria-label', svg.getAttribute('data-label-' + lang));
+    });
+    if (remember) {
+      try { localStorage.setItem(KEY, lang); } catch (e) { /* ignore */ }
+    }
+  }
+
+  document.querySelectorAll('[data-set-lang]').forEach(function (button) {
+    button.addEventListener('click', function () { applyLanguage(button.getAttribute('data-set-lang'), true); });
+  });
+  applyLanguage(initialLanguage(), false);
+
+  // Hovering / focusing a step highlights it in the diagram and in the list.
+  function highlight(step, on) {
+    document.querySelectorAll('[data-flow="' + step + '"]').forEach(function (node) { node.classList.toggle('hl', on); });
+  }
+  document.querySelectorAll('[data-flow]').forEach(function (node) {
+    var step = node.getAttribute('data-flow');
+    ['mouseenter', 'focus'].forEach(function (name) { node.addEventListener(name, function () { highlight(step, true); }); });
+    ['mouseleave', 'blur'].forEach(function (name) { node.addEventListener(name, function () { highlight(step, false); }); });
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,27 +1,25 @@
-import typescriptEslint from "typescript-eslint";
+import tseslint from 'typescript-eslint';
 
-export default [{
-    files: ["**/*.ts"],
-}, {
-    plugins: {
-        "@typescript-eslint": typescriptEslint.plugin,
-    },
-
+export default tseslint.config(
+  { ignores: ['out/**', 'node_modules/**'] },
+  ...tseslint.configs.recommendedTypeChecked,
+  {
+    files: ['src/**/*.ts', 'test/**/*.ts'],
     languageOptions: {
-        parser: typescriptEslint.parser,
-        ecmaVersion: 2022,
-        sourceType: "module",
+      parserOptions: {
+        // Covers src and test, so type-aware rules (floating promises, ...) apply to both.
+        project: './tsconfig.test.json',
+        tsconfigRootDir: import.meta.dirname
+      }
     },
-
     rules: {
-        "@typescript-eslint/naming-convention": ["warn", {
-            selector: "import",
-            format: ["camelCase", "PascalCase"],
-        }],
-
-        curly: "warn",
-        eqeqeq: "warn",
-        "no-throw-literal": "warn",
-        semi: "warn",
-    },
-}];
+      '@typescript-eslint/naming-convention': [
+        'error',
+        { selector: 'import', format: ['camelCase', 'PascalCase'] }
+      ],
+      curly: 'error',
+      eqeqeq: 'error',
+      semi: 'error'
+    }
+  }
+);

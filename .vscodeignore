@@ -3,10 +3,12 @@
 src/**
 .gitignore
 .yarnrc
-**/tsconfig.json
+**/tsconfig*.json
 **/eslint.config.mjs
 **/*.map
 **/*.ts
 vitest.config.ts
 docs/**
+visual-guide/**
+.github/workflows/**
 *.vsix

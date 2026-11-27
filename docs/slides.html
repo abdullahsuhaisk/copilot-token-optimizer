@@ -41,7 +41,7 @@
 <section class="slide">
   <h1>Enterprise <span class="accent">AI Token Optimizer</span></h1>
   <p class="sub">LLM'e ulaşmadan önce bağlamı budayan MCP tabanlı VS Code eklentisi</p>
-  <p class="sub" style="font-size:1.6vw">v0.0.2 · MIT · TypeScript · Model Context Protocol</p>
+  <p class="sub" style="font-size:1.6vw">v0.0.10 · MIT · TypeScript · Model Context Protocol</p>
 </section>
 
 <section class="slide">
@@ -60,7 +60,7 @@
     <li>Eklenti, bir <b>MCP sunucusu</b> kaydeder; agent bu araçları ek yapılandırma olmadan kullanır.</li>
     <li>İçerik, modele gitmeden önce <code>optimize()</code> motorundan geçer.</li>
     <li>Kazanım <code>tiktoken</code> (<code>o200k_base</code>) ile gerçek token sayısı üzerinden ölçülür.</li>
-    <li>Sonuç durum çubuğunda canlı gösterilir: <code>$(zap) Saved N tokens</code></li>
+    <li>Sonuç durum çubuğunda canlı gösterilir: <code>$(zap) Reply N saved tokens · $(shield) K redacted</code></li>
   </ul>
 </section>
 
@@ -70,24 +70,30 @@
     <div class="box">Copilot / Agent</div><span class="arrow">→</span>
     <div class="box">MCP Sunucusu<br><small>mcp-server.ts (stdio)</small></div><span class="arrow">→</span>
     <div class="box">optimize()<br><small>optimizer.ts</small></div><span class="arrow">→</span>
-    <div class="box">Telemetri<br><small>telemetry.ts → stats.json</small></div>
+    <div class="box">Telemetri<br><small>stats-store.ts → stats.json</small></div>
   </div>
-  <p style="margin-top:5vh"><span class="accent2">extension.ts</span> sunucuyu ayrı bir <code>node</code> süreci olarak başlatır
+  <p style="margin-top:5vh"><span class="accent2">extension.ts</span> sunucuyu ayrı bir süreç olarak başlatır (VS Code'un gömülü Node'u; <code>node</code> kurulumu gerekmez)
   (<code>STATS_FILE</code>, <code>WORKSPACE_ROOT</code>), <code>stats.json</code> dosyasını izler ve durum çubuğunu günceller.</p>
 </section>
 
 <section class="slide">
   <h2>Proje Yapısı</h2>
 <pre>src/
-  extension.ts      VS Code giriş noktası (status bar, komut, MCP tanımı)
-  mcp-server.ts     Bağımsız MCP sunucusu (stdio transport)
-  core/             vscode ve MCP'den bağımsız saf mantık
-    optimizer.ts    Budama motoru
-    redactor.ts     Hassas veri maskeleme
-    telemetry.ts    Token sayımı ve paylaşılan istatistik dosyası
-    file-lock.ts    Süreçler arası dosya kilidi
-    format.ts       Metin biçimlendirme
-test/               Vitest birim testleri</pre>
+  extension.ts            VS Code giriş noktası (status bar, komut, MCP tanımı)
+  mcp-server.ts           Bağımsız MCP sunucu sürecinin giriş noktası (stdio)
+  mcp/                    MCP sunucusu: yapılandırma, araç kaydı, üç araç
+  core/                   vscode ve MCP'den bağımsız saf mantık
+    optimizer.ts          Budama hattı
+    languages.ts          Dile göre yorum sözdizimi, uzantı -> dil
+    line-transforms.ts    Saf satır dönüşümleri
+    redactor.ts           Hassas veri maskeleme
+    tokens.ts             Token sayımı (tiktoken), tasarruf ölçümü
+    credits.ts            AI Credit tahmini
+    stats-store.ts        Paylaşılan istatistik dosyası
+    file-lock.ts          Süreçler arası dosya kilidi
+    workspace-path.ts     Yolları çalışma alanıyla sınırlar
+    format/               Status bar, rapor ve araç yanıtı metinleri
+test/                     Vitest birim testleri</pre>
 </section>
 
 <section class="slide">
@@ -95,26 +101,27 @@ test/               Vitest birim testleri</pre>
   <div class="grid">
     <div class="card"><h3>optimize_context</h3><p>Verilen metin veya kodu budar; sonuç ve token tasarruf özetini döndürür.</p></div>
     <div class="card"><h3>read_file_optimized</h3><p>Çalışma alanındaki dosyayı okur ve optimize edilmiş içeriği döndürür.</p></div>
-    <div class="card"><h3>get_token_stats</h3><p>Oturum boyunca toplam çağrı sayısı ve tasarruf edilen token bilgisini verir.</p></div>
+    <div class="card"><h3>get_token_stats</h3><p>Tüm pencerelerdeki birikimli çağrı sayısını ve token/kredi tasarrufunu verir.</p></div>
   </div>
 </section>
 
 <section class="slide">
   <h2>Optimizasyon Motoru</h2>
   <ul>
-    <li>Blok ve satır yorumlarını temizler (dile göre: C-benzeri, <code>#</code> tabanlı).</li>
+    <li>Yalnızca bütün satırı kaplayan yorumları siler (dile göre: C-benzeri <code>//</code> ve <code>/* */</code>, <code>#</code> tabanlı); string içindeki yorum benzeri metne dokunmaz.</li>
     <li>Satır sonu boşluklarını siler, ardışık boş satırları teke indirir.</li>
-    <li>Tekrar eden ardışık satırları katlar: <code>satır  (x3)</code></li>
-    <li><b>conservative</b>: anlamı değiştirmez. <b>aggressive</b>: ek olarak çoklu boşlukları tek boşluğa indirir.</li>
+    <li>Tekrar eden ardışık satırları yalnızca <code>log</code> ve <code>plaintext</code> için katlar: <code>satır  (x3)</code>; koda ve veriye dokunmaz.</li>
+    <li><b>conservative</b>: anlamı değiştirmez. <b>aggressive</b>: ek olarak yalnızca <code>plaintext</code> içinde çoklu boşlukları tek boşluğa indirir.</li>
   </ul>
 </section>
 
 <section class="slide">
   <h2>Telemetri ve Kullanıcı Deneyimi</h2>
   <ul>
-    <li>Her çağrıda ham ve optimize token sayıları ölçülür, <code>stats.json</code> dosyasına atomik yazılır (tmp + rename).</li>
-    <li>Eklenti dosyayı izler; durum çubuğu anında güncellenir.</li>
-    <li><code>AI Token Optimizer: Show Token Savings</code> komutu çağrı sayısı, ham/optimize token ve yüzde kazancı gösterir.</li>
+    <li>Her çağrıda ham ve optimize token sayıları ölçülür, <code>stats.json</code> dosyasına kilit altında atomik yazılır (tmp + rename).</li>
+    <li>Eklenti dosyayı izler; durum çubuğu anında güncellenir. Tüm VS Code pencereleri aynı birikimli toplamı gösterir.</li>
+    <li>Net kazanç, yanıtın tamamı (kısa özet satırı dahil) üzerinden ölçülür; çok küçük dosyalarda net değer negatif olabilir.</li>
+    <li><code>AI Token Optimizer: Show Token Savings</code> komutu birikimli raporu gösterir.</li>
   </ul>
 </section>
 
@@ -122,17 +129,18 @@ test/               Vitest birim testleri</pre>
   <h2>Güvenlik</h2>
   <ul>
     <li><code>read_file_optimized</code> yalnızca çalışma alanı kökü içindeki dosyaları okur.</li>
-    <li>Kök dışına çıkan yollar (path traversal, <code>..</code>) reddedilir.</li>
+    <li>Kök dışına çıkan yollar (<code>..</code>, mutlak yollar) ve dışarıyı gösteren symlink'ler reddedilir.</li>
     <li>Çalışma alanı yapılandırılmamışsa dosya okuma tamamen kapalıdır.</li>
+    <li>Gizli anahtarlar, e-posta, IP ve MAC adresleri modele ulaşmadan maskelenir.</li>
     <li>Araçlar <code>readOnlyHint</code> ile salt-okunur olarak işaretlidir.</li>
   </ul>
 </section>
 
 <section class="slide">
   <h2>Örnek Çıktı</h2>
-  <pre>Tokens: 1741 -> 907 (saved 834, 47.9%)    optimizer.ts
-Tokens: 1044 -> 586 (saved 458, 43.9%)    telemetry.ts
-Tokens:  984 -> 715 (saved 269, 27.3%)    extension.ts</pre>
+  <pre>[token-optimizer] 1084->538 tokens (saved 546, 50.4%)    optimizer.ts
+[token-optimizer] 1445->966 tokens (saved 479, 33.1%)    stats-store.ts
+[token-optimizer] 1251->1080 tokens (saved 171, 13.7%)   extension.ts</pre>
   <p class="sub" style="margin-top:3vh">Bu projenin kendi kaynak dosyaları üzerinde ölçülen tasarruf.</p>
 </section>
 
@@ -142,7 +150,8 @@ Tokens:  984 -> 715 (saved 269, 27.3%)    extension.ts</pre>
     <tr><th>Komut</th><th>Açıklama</th></tr>
     <tr><td><code>npm run compile</code></td><td>TypeScript'i <code>out/</code> dizinine derler</td></tr>
     <tr><td><code>npm run watch</code></td><td>Değişikliklerde otomatik derler</td></tr>
-    <tr><td><code>npm run lint</code></td><td>ESLint kontrolü</td></tr>
+    <tr><td><code>npm run typecheck</code></td><td>Kaynak ve testler için tip kontrolü</td></tr>
+    <tr><td><code>npm run lint</code></td><td>ESLint kontrolü (uyarı da hata sayılır)</td></tr>
     <tr><td><code>npm test</code></td><td>Vitest birim testleri</td></tr>
     <tr><td><code>F5</code></td><td>Extension Development Host'ta çalıştırır</td></tr>
   </table>
@@ -152,7 +161,8 @@ Tokens:  984 -> 715 (saved 269, 27.3%)    extension.ts</pre>
   <h2>Sınırlar ve Yol Haritası</h2>
   <ul>
     <li>Optimizasyon yalnızca MCP araç çıktısı seviyesinde çalışır; VS Code, Copilot'un kendi prompt'unu yeniden yazmaya izin vermez.</li>
-    <li>İstatistikler oturuma özeldir ve global storage altında tutulur.</li>
+    <li>İstatistikler tüm pencereler için birikimlidir ve global storage altında tutulur.</li>
+    <li>Tekrar eden satırların katlanması için <code>languageId</code> değeri <code>log</code> veya <code>plaintext</code> verilmelidir.</li>
     <li>Olası geliştirmeler: daha fazla dil desteği, minify/özetleme stratejileri, oturum geçmişi grafikleri.</li>
   </ul>
 </section>
