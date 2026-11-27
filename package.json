@@ -63,6 +63,7 @@
     "test:watch": "vitest",
     "package": "vsce package",
     "publish:vs": "npm test && vsce publish",
+    "publish:github" : "npm test && gh npm version patch && git push --follow-tags",
     "vscode:prepublish": "npm run clean && npm run compile"
   },
   "dependencies": {
