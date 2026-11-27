@@ -42,7 +42,61 @@ Every character Copilot's agent reads costs tokens. Comments, blank lines, repea
    ```
 
 2. **Open Copilot Chat in Agent mode.** The MCP server registers itself, so `optimize_context`, `read_file_optimized` and `get_token_stats` are available with no configuration. The ⚡ savings indicator appears in the status bar.
-3. **Make Copilot prefer the tools.** It is the model that decides which tool to call; one copy-paste command helps a lot. See *Make Copilot use the tools* below.
+3. **Set up Copilot for your project.** [Add the project instructions](#copilot-setup-en) once in each project so Copilot can prefer the optimizer's tools.
+
+<a id="copilot-setup-en"></a>
+
+### 🤖 Make Copilot use the tools
+
+> **📍 One-time setup per project**
+>
+> 📂 Open your project in VS Code → 💻 **Terminal → New Terminal** → 📋 Copy and run the command below.
+>
+> Make sure the terminal is in **your project's root**, not the extension's installation folder.
+
+The command creates `.github/copilot-instructions.md` or **appends** to the existing file; it does not overwrite your instructions. Run it only once. If the file already contains instructions for these tools, update those instructions instead of adding duplicates.
+
+**macOS / Linux / Git Bash**
+
+```bash
+mkdir -p .github && cat >> .github/copilot-instructions.md <<'EOF'
+
+# Copilot Instructions — AI Token Optimizer
+
+- When reading the contents of a workspace file, prefer the `read_file_optimized`
+  MCP tool (from the "AI Token Optimizer" server) over the built-in file-read
+  tool, so token savings are tracked.
+- When optimizing or summarizing a text/code payload that is not read from a
+  file, prefer the `optimize_context` MCP tool.
+- After a batch of optimizations, you may call `get_token_stats` to report
+  cumulative savings if the user asks for a summary.
+EOF
+```
+
+<details>
+<summary><b>🪟 Windows (PowerShell) — click to expand</b></summary>
+
+```powershell
+New-Item -ItemType Directory -Force .github | Out-Null
+@'
+
+# Copilot Instructions — AI Token Optimizer
+
+- When reading the contents of a workspace file, prefer the `read_file_optimized`
+  MCP tool (from the "AI Token Optimizer" server) over the built-in file-read
+  tool, so token savings are tracked.
+- When optimizing or summarizing a text/code payload that is not read from a
+  file, prefer the `optimize_context` MCP tool.
+- After a batch of optimizations, you may call `get_token_stats` to report
+  cumulative savings if the user asks for a summary.
+'@ | Add-Content -Path .github/copilot-instructions.md -Encoding utf8
+```
+
+</details>
+
+**✅ Check it:** Open `.github/copilot-instructions.md` in your project and confirm the instructions are there. In Copilot Chat's **Agent** mode, enable the AI Token Optimizer tools in **Tools**, then ask Copilot to use `read_file_optimized` on a project file. Look for its tool call in the chat.
+
+Copilot reads the project instruction file when workspace instructions are enabled, but the model decides which tool to call. You can mention `#read_file_optimized` explicitly; for stricter routing, disable the built-in file-read tool from the **Tools** picker and re-enable it when needed.
 
 ### ✨ See it work
 
@@ -107,53 +161,6 @@ Redacted (total)   : 3
   MAC addresses    : 0
   E-mail addresses : 1
 ```
-
-### 🤖 Make Copilot use the tools
-
-The model decides which tool to call, so an extension cannot force it. To maximize usage:
-
-1. **Disable the built-in file-read tool** in Agent mode via the **Tools** picker in the chat input; Copilot then has to use `read_file_optimized`.
-2. **Add project instructions for extra savings.** Copilot reads `.github/copilot-instructions.md` automatically on every request in that workspace. Run this once in the root of your project. It creates the file, or appends to it if it already exists; it never overwrites anything:
-
-```bash
-mkdir -p .github && cat >> .github/copilot-instructions.md <<'EOF'
-
-# Copilot Instructions — AI Token Optimizer
-
-- ALWAYS read workspace files with the `read_file_optimized` MCP tool (from the
-  "AI Token Optimizer" server). Do NOT use the built-in file-read tool unless
-  `read_file_optimized` returns an error, or you need the exact original text
-  and line numbers to make an edit.
-- Before reasoning over any large text that is not a file (terminal output,
-  logs, pasted code, API responses), pass it through the `optimize_context`
-  MCP tool first.
-- When the user asks about savings, call `get_token_stats`.
-EOF
-```
-
-<details>
-<summary><b>Windows (PowerShell)</b></summary>
-
-```powershell
-New-Item -ItemType Directory -Force .github | Out-Null
-@'
-
-# Copilot Instructions — AI Token Optimizer
-
-- ALWAYS read workspace files with the `read_file_optimized` MCP tool (from the
-  "AI Token Optimizer" server). Do NOT use the built-in file-read tool unless
-  `read_file_optimized` returns an error, or you need the exact original text
-  and line numbers to make an edit.
-- Before reasoning over any large text that is not a file (terminal output,
-  logs, pasted code, API responses), pass it through the `optimize_context`
-  MCP tool first.
-- When the user asks about savings, call `get_token_stats`.
-'@ | Add-Content -Path .github/copilot-instructions.md -Encoding utf8
-```
-
-</details>
-
-3. **Reference the tool explicitly** in a prompt, e.g. `#read_file_optimized`.
 
 ### 🔌 Use with Claude Code, Claude Desktop, Cursor and other MCP clients
 
@@ -360,7 +367,61 @@ Copilot agent'ının okuduğu her karakter token harcar. Yorumlar, boş satırla
    ```
 
 2. **Copilot Chat'i Agent modunda açın.** MCP sunucusu kendini kaydeder; `optimize_context`, `read_file_optimized` ve `get_token_stats` ek yapılandırma gerekmeden kullanılabilir. Durum çubuğunda ⚡ tasarruf göstergesi görünür.
-3. **Copilot'un araçları tercih etmesini sağlayın.** Hangi aracın çağrılacağına model karar verir; tek bir kopyala-yapıştır komutu çok işe yarar. Aşağıdaki *Copilot'un Araçları Kullanmasını Sağlama* bölümüne bakın.
+3. **Copilot'u projeniz için ayarlayın.** Copilot'un optimizer araçlarını tercih etmesi için her projede bir kez [proje talimatlarını ekleyin](#copilot-setup-tr).
+
+<a id="copilot-setup-tr"></a>
+
+### 🤖 Copilot'un Araçları Kullanmasını Sağlama
+
+> **📍 Her proje için bir kez**
+>
+> 📂 Projenizi VS Code'da açın → 💻 **Terminal → New Terminal** → 📋 Aşağıdaki komutu kopyalayıp çalıştırın.
+>
+> Terminalin, eklentinin kurulu olduğu klasörde değil, **üzerinde çalıştığınız projenin kök dizininde** olduğundan emin olun.
+
+Komut `.github/copilot-instructions.md` dosyasını oluşturur veya mevcut dosyanın **sonuna ekler**; talimatlarınızın üzerine yazmaz. Yalnızca bir kez çalıştırın. Dosyada bu araçlara ait talimatlar zaten varsa, tekrarlamak yerine mevcut talimatları güncelleyin.
+
+**macOS / Linux / Git Bash**
+
+```bash
+mkdir -p .github && cat >> .github/copilot-instructions.md <<'EOF'
+
+# Copilot Instructions — AI Token Optimizer
+
+- When reading the contents of a workspace file, prefer the `read_file_optimized`
+  MCP tool (from the "AI Token Optimizer" server) over the built-in file-read
+  tool, so token savings are tracked.
+- When optimizing or summarizing a text/code payload that is not read from a
+  file, prefer the `optimize_context` MCP tool.
+- After a batch of optimizations, you may call `get_token_stats` to report
+  cumulative savings if the user asks for a summary.
+EOF
+```
+
+<details>
+<summary><b>🪟 Windows (PowerShell) — açmak için tıklayın</b></summary>
+
+```powershell
+New-Item -ItemType Directory -Force .github | Out-Null
+@'
+
+# Copilot Instructions — AI Token Optimizer
+
+- When reading the contents of a workspace file, prefer the `read_file_optimized`
+  MCP tool (from the "AI Token Optimizer" server) over the built-in file-read
+  tool, so token savings are tracked.
+- When optimizing or summarizing a text/code payload that is not read from a
+  file, prefer the `optimize_context` MCP tool.
+- After a batch of optimizations, you may call `get_token_stats` to report
+  cumulative savings if the user asks for a summary.
+'@ | Add-Content -Path .github/copilot-instructions.md -Encoding utf8
+```
+
+</details>
+
+**✅ Kontrol edin:** Projenizde `.github/copilot-instructions.md` dosyasını açıp talimatların eklendiğini doğrulayın. Copilot Chat'in **Agent** modunda **Tools** seçicisinden AI Token Optimizer araçlarını etkinleştirin; ardından Copilot'tan bir proje dosyasını `read_file_optimized` ile okumasını isteyin. Sohbette aracın çağrıldığını kontrol edin.
+
+Çalışma alanı talimatları etkinse Copilot bu proje dosyasını okur; hangi aracın kullanılacağına ise model karar verir. Gerekirse prompt'ta `#read_file_optimized` belirtin; daha katı yönlendirme için **Tools** seçicisinden yerleşik dosya okuma aracını kapatıp ihtiyaç duyduğunuzda yeniden açabilirsiniz.
 
 ### ✨ Çalışırken görün
 
@@ -425,53 +486,6 @@ Redacted (total)   : 3
   MAC addresses    : 0
   E-mail addresses : 1
 ```
-
-### 🤖 Copilot'un Araçları Kullanmasını Sağlama
-
-Hangi aracın çağrılacağına model karar verir; eklenti bunu zorlayamaz. Kullanımı artırmak için:
-
-1. **Yerleşik dosya okuma aracını kapatın:** Agent modunda chat kutusundaki **Tools** seçicisinden kaldırın; Copilot `read_file_optimized` kullanmak zorunda kalır.
-2. **Daha fazla tasarruf için proje talimatı ekleyin.** Copilot, `.github/copilot-instructions.md` dosyasını o workspace'teki her istekte otomatik okur. Projenizin kök dizininde aşağıdaki komutu bir kez çalıştırın. Dosyayı oluşturur; dosya zaten varsa sonuna ekler, hiçbir şeyin üzerine yazmaz:
-
-```bash
-mkdir -p .github && cat >> .github/copilot-instructions.md <<'EOF'
-
-# Copilot Instructions — AI Token Optimizer
-
-- ALWAYS read workspace files with the `read_file_optimized` MCP tool (from the
-  "AI Token Optimizer" server). Do NOT use the built-in file-read tool unless
-  `read_file_optimized` returns an error, or you need the exact original text
-  and line numbers to make an edit.
-- Before reasoning over any large text that is not a file (terminal output,
-  logs, pasted code, API responses), pass it through the `optimize_context`
-  MCP tool first.
-- When the user asks about savings, call `get_token_stats`.
-EOF
-```
-
-<details>
-<summary><b>Windows (PowerShell)</b></summary>
-
-```powershell
-New-Item -ItemType Directory -Force .github | Out-Null
-@'
-
-# Copilot Instructions — AI Token Optimizer
-
-- ALWAYS read workspace files with the `read_file_optimized` MCP tool (from the
-  "AI Token Optimizer" server). Do NOT use the built-in file-read tool unless
-  `read_file_optimized` returns an error, or you need the exact original text
-  and line numbers to make an edit.
-- Before reasoning over any large text that is not a file (terminal output,
-  logs, pasted code, API responses), pass it through the `optimize_context`
-  MCP tool first.
-- When the user asks about savings, call `get_token_stats`.
-'@ | Add-Content -Path .github/copilot-instructions.md -Encoding utf8
-```
-
-</details>
-
-3. **Aracı prompt'ta doğrudan belirtin**, örn. `#read_file_optimized`.
 
 ### 🔌 Claude Code, Claude Desktop, Cursor ve diğer MCP istemcilerinde kullanım
 
@@ -678,7 +692,61 @@ Ogni carattere letto dall'agent di Copilot costa token. Commenti, righe vuote, r
    ```
 
 2. **Apri Copilot Chat in modalità Agent.** Il server MCP si registra da solo, quindi `optimize_context`, `read_file_optimized` e `get_token_stats` sono disponibili senza configurazione. Nella barra di stato compare l'indicatore di risparmio ⚡.
-3. **Fai in modo che Copilot preferisca gli strumenti.** È il modello a decidere quale strumento chiamare; un solo comando da copiare e incollare aiuta molto. Vedi *Far usare gli strumenti a Copilot* più sotto.
+3. **Configura Copilot per il tuo progetto.** [Aggiungi le istruzioni di progetto](#copilot-setup-it) una volta in ogni progetto per incoraggiare Copilot a usare gli strumenti dell'optimizer.
+
+<a id="copilot-setup-it"></a>
+
+### 🤖 Far usare gli strumenti a Copilot
+
+> **📍 Una sola volta per progetto**
+>
+> 📂 Apri il progetto in VS Code → 💻 **Terminal → New Terminal** → 📋 Copia ed esegui il comando qui sotto.
+>
+> Assicurati che il terminale sia nella **directory principale del progetto**, non nella cartella di installazione dell'estensione.
+
+Il comando crea `.github/copilot-instructions.md` oppure **aggiunge** le istruzioni al file esistente, senza sovrascriverlo. Eseguilo una sola volta. Se il file contiene già istruzioni per questi strumenti, aggiorna quelle esistenti invece di aggiungere duplicati.
+
+**macOS / Linux / Git Bash**
+
+```bash
+mkdir -p .github && cat >> .github/copilot-instructions.md <<'EOF'
+
+# Copilot Instructions — AI Token Optimizer
+
+- When reading the contents of a workspace file, prefer the `read_file_optimized`
+  MCP tool (from the "AI Token Optimizer" server) over the built-in file-read
+  tool, so token savings are tracked.
+- When optimizing or summarizing a text/code payload that is not read from a
+  file, prefer the `optimize_context` MCP tool.
+- After a batch of optimizations, you may call `get_token_stats` to report
+  cumulative savings if the user asks for a summary.
+EOF
+```
+
+<details>
+<summary><b>🪟 Windows (PowerShell) — fai clic per espandere</b></summary>
+
+```powershell
+New-Item -ItemType Directory -Force .github | Out-Null
+@'
+
+# Copilot Instructions — AI Token Optimizer
+
+- When reading the contents of a workspace file, prefer the `read_file_optimized`
+  MCP tool (from the "AI Token Optimizer" server) over the built-in file-read
+  tool, so token savings are tracked.
+- When optimizing or summarizing a text/code payload that is not read from a
+  file, prefer the `optimize_context` MCP tool.
+- After a batch of optimizations, you may call `get_token_stats` to report
+  cumulative savings if the user asks for a summary.
+'@ | Add-Content -Path .github/copilot-instructions.md -Encoding utf8
+```
+
+</details>
+
+**✅ Verifica:** Apri `.github/copilot-instructions.md` nel progetto e controlla che le istruzioni siano presenti. In Copilot Chat, nella modalità **Agent**, abilita gli strumenti AI Token Optimizer nel selettore **Tools**; poi chiedi a Copilot di leggere un file del progetto con `read_file_optimized`. Verifica nella chat che lo strumento sia stato chiamato.
+
+Copilot legge il file di istruzioni del progetto quando le istruzioni del workspace sono abilitate, ma è il modello a decidere quale strumento chiamare. Puoi citare `#read_file_optimized` nel prompt; per una scelta più vincolante, disattiva lo strumento integrato di lettura file dal selettore **Tools** e riattivalo quando serve.
 
 ### ✨ Guardalo in azione
 
@@ -743,53 +811,6 @@ Redacted (total)   : 3
   MAC addresses    : 0
   E-mail addresses : 1
 ```
-
-### 🤖 Far usare gli strumenti a Copilot
-
-È il modello a decidere quale strumento chiamare, quindi un'estensione non può forzarlo. Per massimizzarne l'uso:
-
-1. **Disattiva lo strumento integrato di lettura file** in modalità Agent dal selettore **Tools** nella chat; Copilot dovrà usare `read_file_optimized`.
-2. **Aggiungi istruzioni di progetto per un risparmio maggiore.** Copilot legge automaticamente `.github/copilot-instructions.md` a ogni richiesta in quel workspace. Esegui questo comando una volta nella root del progetto. Crea il file, oppure lo aggiunge in coda se esiste già; non sovrascrive nulla:
-
-```bash
-mkdir -p .github && cat >> .github/copilot-instructions.md <<'EOF'
-
-# Copilot Instructions — AI Token Optimizer
-
-- ALWAYS read workspace files with the `read_file_optimized` MCP tool (from the
-  "AI Token Optimizer" server). Do NOT use the built-in file-read tool unless
-  `read_file_optimized` returns an error, or you need the exact original text
-  and line numbers to make an edit.
-- Before reasoning over any large text that is not a file (terminal output,
-  logs, pasted code, API responses), pass it through the `optimize_context`
-  MCP tool first.
-- When the user asks about savings, call `get_token_stats`.
-EOF
-```
-
-<details>
-<summary><b>Windows (PowerShell)</b></summary>
-
-```powershell
-New-Item -ItemType Directory -Force .github | Out-Null
-@'
-
-# Copilot Instructions — AI Token Optimizer
-
-- ALWAYS read workspace files with the `read_file_optimized` MCP tool (from the
-  "AI Token Optimizer" server). Do NOT use the built-in file-read tool unless
-  `read_file_optimized` returns an error, or you need the exact original text
-  and line numbers to make an edit.
-- Before reasoning over any large text that is not a file (terminal output,
-  logs, pasted code, API responses), pass it through the `optimize_context`
-  MCP tool first.
-- When the user asks about savings, call `get_token_stats`.
-'@ | Add-Content -Path .github/copilot-instructions.md -Encoding utf8
-```
-
-</details>
-
-3. **Cita lo strumento esplicitamente** nel prompt, ad es. `#read_file_optimized`.
 
 ### 🔌 Utilizzo con Claude Code, Claude Desktop, Cursor e altri client MCP
 
